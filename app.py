@@ -185,7 +185,7 @@ def show_summary_and_insights():
     if not st.session_state.ai_insights:
         with st.spinner("Generating…"):
             try:
-                model = genai.GenerativeModel("gemini-pro")
+                model = genai.GenerativeModel("gemini-1.5-pro")
                 prompt = f"Analyze this summary:\n\n{txt}\n\nProvide sentiment, themes, and recommendations."
                 resp = model.generate_content(prompt)
                 st.session_state.ai_insights = resp.text
