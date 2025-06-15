@@ -1,6 +1,11 @@
+python-dotenv
+requests
 streamlit
 google-api-python-client
 google-cloud-storage
 google-generativeai
-python-dotenv 
+matplotlib
+numpy
+fpdf
 plotly
+
