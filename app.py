@@ -69,24 +69,224 @@ st.markdown("""
     background-attachment: fixed;
   }
   
-  /* Header Styles */
-  .main-header { 
-    background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.9) 100%);
+/* Header Styles */
+.main-header { 
+    background: linear-gradient(135deg, 
+        rgba(15,15,35,0.95) 0%, 
+        rgba(25,25,55,0.98) 25%,
+        rgba(35,15,45,0.95) 50%,
+        rgba(20,20,40,0.92) 100%);
     backdrop-filter: blur(25px);
     border-radius: 25px;
     padding: 40px;
     margin-bottom: 30px;
     box-shadow: 
-        0 25px 50px rgba(0,0,0,0.15),
-        0 0 0 1px rgba(255,255,255,0.3),
-        inset 0 1px 0 rgba(255,255,255,0.6);
-    border: 2px solid rgba(255,255,255,0.3);
+        0 25px 50px rgba(0,0,0,0.3),
+        0 0 0 1px rgba(100,200,255,0.3),
+        inset 0 1px 0 rgba(255,255,255,0.2),
+        0 0 60px rgba(0,150,255,0.15);
+    border: 2px solid rgba(100,200,255,0.4);
     display: flex;
     align-items: center;
     gap: 30px;
-    animation: slideInDown 0.8s ease-out;
+    animation: slideInDown 0.8s ease-out, headerPulse 3s ease-in-out infinite;
     position: relative;
     overflow: hidden;
+}
+
+/* Animated background with AI-themed colors */
+.main-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: 
+        radial-gradient(circle at 25% 25%, rgba(0,200,255,0.08) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(150,0,255,0.06) 0%, transparent 50%),
+        radial-gradient(circle at 50% 10%, rgba(255,0,150,0.04) 0%, transparent 60%);
+    animation: aiParticles 15s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Floating neural network effect */
+.main-header::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 20% 30%, rgba(0,255,200,0.1) 2px, transparent 2px),
+        radial-gradient(circle at 80% 20%, rgba(255,0,200,0.1) 1px, transparent 1px),
+        radial-gradient(circle at 60% 80%, rgba(100,200,255,0.1) 1.5px, transparent 1.5px),
+        radial-gradient(circle at 30% 70%, rgba(200,100,255,0.1) 1px, transparent 1px);
+    background-size: 100px 100px, 80px 80px, 120px 120px, 90px 90px;
+    animation: neuralNetwork 8s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Enhanced title styling */
+.main-header h1 {
+    position: relative;
+    z-index: 3;
+    background: linear-gradient(45deg, 
+        #00d4ff 0%, 
+        #ff0080 25%, 
+        #8000ff 50%, 
+        #00ff80 75%, 
+        #ff4000 100%);
+    background-size: 300% 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 4s ease-in-out infinite;
+    font-weight: 700;
+    text-shadow: 0 0 30px rgba(0,200,255,0.3);
+}
+
+/* AI Powered subtitle with enhanced effects */
+.ai-powered-text {
+    position: relative;
+    z-index: 3;
+    font-size: 1.2em;
+    font-weight: 600;
+    background: linear-gradient(90deg, 
+        #00ff88 0%,
+        #0088ff 25%,
+        #8800ff 50%,
+        #ff0088 75%,
+        #ff8800 100%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: aiTextFlow 3s linear infinite;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    position: relative;
+}
+
+/* Glowing AI chip icon effect */
+.ai-powered-text::before {
+    content: '🧠';
+    position: absolute;
+    left: -30px;
+    top: 50%;
+    transform: translateY(-50%);
+    animation: brainPulse 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 10px rgba(0,255,150,0.6));
+}
+
+/* Animated underline for AI text */
+.ai-powered-text::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        transparent 0%,
+        #00ff88 20%,
+        #0088ff 40%,
+        #8800ff 60%,
+        #ff0088 80%,
+        transparent 100%);
+    animation: underlineGlow 2s ease-in-out infinite;
+}
+
+/* Keyframe animations */
+@keyframes headerPulse {
+    0%, 100% { 
+        box-shadow: 
+            0 25px 50px rgba(0,0,0,0.3),
+            0 0 0 1px rgba(100,200,255,0.3),
+            inset 0 1px 0 rgba(255,255,255,0.2),
+            0 0 60px rgba(0,150,255,0.15);
+    }
+    50% { 
+        box-shadow: 
+            0 30px 60px rgba(0,0,0,0.4),
+            0 0 0 1px rgba(100,200,255,0.5),
+            inset 0 1px 0 rgba(255,255,255,0.3),
+            0 0 80px rgba(0,150,255,0.25);
+    }
+}
+
+@keyframes aiParticles {
+    0% { transform: rotate(0deg) scale(1); opacity: 0.8; }
+    33% { transform: rotate(120deg) scale(1.1); opacity: 1; }
+    66% { transform: rotate(240deg) scale(0.9); opacity: 0.6; }
+    100% { transform: rotate(360deg) scale(1); opacity: 0.8; }
+}
+
+@keyframes neuralNetwork {
+    0%, 100% { 
+        background-position: 0% 0%, 100% 100%, 50% 50%, 25% 75%; 
+        opacity: 0.3;
+    }
+    50% { 
+        background-position: 100% 100%, 0% 0%, 75% 25%, 50% 50%; 
+        opacity: 0.6;
+    }
+}
+
+@keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+@keyframes aiTextFlow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+}
+
+@keyframes brainPulse {
+    0%, 100% { 
+        transform: translateY(-50%) scale(1); 
+        filter: drop-shadow(0 0 10px rgba(0,255,150,0.6));
+    }
+    50% { 
+        transform: translateY(-50%) scale(1.2); 
+        filter: drop-shadow(0 0 20px rgba(0,255,150,0.9));
+    }
+}
+
+@keyframes underlineGlow {
+    0%, 100% { opacity: 0.6; transform: scaleX(1); }
+    50% { opacity: 1; transform: scaleX(1.05); }
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translate3d(0, -100%, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .main-header {
+        padding: 25px;
+        gap: 20px;
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .ai-powered-text::before {
+        position: static;
+        display: block;
+        margin-bottom: 10px;
+    }
 }
 
   .main-header::before {
@@ -634,7 +834,24 @@ def perform_search(query, max_results):
 def display_search_results():
     """Enhanced search results display"""
     if st.session_state.search_results:
-        st.markdown(f'<div class="glass-container"><h3>📺 Found {len(st.session_state.search_results)} Videos</h3></div>', unsafe_allow_html=True)
+        # Display count outside the container with better styling
+        st.markdown(f'''
+        <div style="
+            font-size: 1.4em; 
+            font-weight: 700; 
+            color: white; 
+            margin: 20px 0 15px 0; 
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            background: rgba(255,255,255,0.1);
+            padding: 12px 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        ">
+            📺 Found {len(st.session_state.search_results)} Videos
+        </div>
+        ''', unsafe_allow_html=True)
         
         for i, video in enumerate(st.session_state.search_results):
             st.markdown('<div class="video-card">', unsafe_allow_html=True)
@@ -649,7 +866,20 @@ def display_search_results():
                 st.markdown(f'<div class="video-meta">📺 {video["channel"]} • 📅 {video["published"]}</div>', unsafe_allow_html=True)
                 description = video.get("description", "")
                 if description:
-                    st.caption(description[:250] + ("..." if len(description) > 250 else ""))
+                    st.markdown(f'''
+                    <div style="
+                        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(255,255,255,0.9));
+                        border-left: 4px solid #667eea;
+                        padding: 15px;
+                        border-radius: 10px;
+                        margin: 10px 0;
+                        color: #333;
+                        line-height: 1.5;
+                    ">
+                        📝 <strong>Description:</strong><br>
+                        {description[:250] + ('...' if len(description) > 250 else '')}
+                    </div>
+                    ''', unsafe_allow_html=True)
             
             with cols[2]:
                 if st.button("🚀 Analyze", key=f"select_{i}", use_container_width=True):
@@ -711,25 +941,63 @@ def dashboard_interface():
     show_analysis_results()
 
 def show_enhanced_analysis_status():
-    """Enhanced analysis status with automatic result checking after 10 seconds"""
-        
-    # Check if auto-check time has passed
+    """Enhanced analysis status with smart progressive checking"""
+    
     if st.session_state.analysis_status == "processing":
         st.markdown('<div class="glass-container">', unsafe_allow_html=True)
         
-        # Check if auto-check time has passed (changed to 10 seconds)
         auto_check_triggered = False
         if hasattr(st.session_state, 'analysis_start_time') and st.session_state.analysis_start_time:
             elapsed_time = time.time() - st.session_state.analysis_start_time
-            if elapsed_time >= 10:  # Changed from 45 to 10 seconds
-                st.markdown('<div style="text-align: center; margin: 20px 0; color: #667eea; font-weight: 600;">⏰ Auto-checking results...</div>', unsafe_allow_html=True)
-                check_for_results()
-                auto_check_triggered = True
-            else:
-                remaining = 10 - int(elapsed_time)  # Changed from 45 to 10
-                show_loading_animation("Analysis in Progress", f"Auto-check in {remaining} seconds...")
+            
+            # Progressive checking intervals: 45s, 90s, 150s, 210s, etc.
+            check_intervals = [45, 90, 150, 210, 270, 330]  # seconds
+            
+            # Determine current check interval
+            next_check = None
+            for interval in check_intervals:
+                if elapsed_time >= interval:
+                    # Check if we haven't checked at this interval yet
+                    if not hasattr(st.session_state, 'last_check_time') or st.session_state.last_check_time < interval:
+                        st.markdown('<div style="text-align: center; margin: 20px 0; color: #667eea; font-weight: 600;">⏰ Auto-checking results...</div>', unsafe_allow_html=True)
+                        st.session_state.last_check_time = interval
+                        check_for_results()
+                        auto_check_triggered = True
+                        break
+                else:
+                    next_check = interval
+                    break
+            
+            if not auto_check_triggered:
+                if next_check:
+                    remaining = next_check - int(elapsed_time)
+                    minutes = remaining // 60
+                    seconds = remaining % 60
+                    
+                    # Determine current phase
+                    if elapsed_time < 60:
+                        phase = "Fetching comments"
+                        estimated = "1-2 minutes remaining"
+                    elif elapsed_time < 120:
+                        phase = "Analyzing sentiment"
+                        estimated = "2-3 minutes remaining"
+                    elif elapsed_time < 180:
+                        phase = "Generating insights"
+                        estimated = "1-2 minutes remaining"
+                    else:
+                        phase = "Finalizing results"
+                        estimated = "Almost done..."
+                    
+                    if minutes > 0:
+                        next_check_text = f"Next check in {minutes}m {seconds}s"
+                    else:
+                        next_check_text = f"Next check in {seconds}s"
+                    
+                    show_loading_animation(phase, f"{estimated} • {next_check_text}")
+                else:
+                    show_loading_animation("Still Processing", "Taking longer than expected...")
         else:
-            show_loading_animation("Analysis in Progress", "This may take 2-5 minutes...")
+            show_loading_animation("Analysis Starting", "Estimated time: 2-5 minutes")
         
         if not auto_check_triggered:
             # Progress simulation
@@ -792,7 +1060,8 @@ def trigger_sentiment_analysis(video_id):
         
         if response.status_code == 200:
             st.session_state.analysis_status = "processing"
-            st.session_state.analysis_start_time = time.time()  # Add this line
+            st.session_state.analysis_start_time = time.time()
+            st.session_state.last_check_time = 0
             placeholder.markdown('<div class="status-success">✅ Analysis started successfully!</div>', unsafe_allow_html=True)
             time.sleep(2)
             placeholder.empty()
