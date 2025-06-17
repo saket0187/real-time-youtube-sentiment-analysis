@@ -716,13 +716,20 @@ if "analysis_start_time" not in st.session_state:
 
 # ─── Enhanced Loading Animation ──────────────────────────────────────────────
 def show_loading_animation(text="Processing", stage=""):
-    """Enhanced loading animation with stages"""
+    """Enhanced loading animation with stages and darker text for better visibility"""
     loading_html = f"""
-    <div class="loading-container">
-        <div class="spinner"></div>
-        <div class="loading-text loading-dots">{text}</div>
-        {f'<div style="margin-top: 10px; color: #888; font-size: 0.9em;">{stage}</div>' if stage else ''}
+    <div style="text-align: center; margin: 20px 0;">
+        <div style="border: 3px solid rgba(255, 255, 255, 0.3); border-top: 3px solid #ffffff; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 15px auto;"></div>
+        <div style="font-size: 18px; margin-bottom: 5px; color: #ffffff; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">{text}</div>
+        {f'<div style="margin-top: 10px; color: #e0e0e0; font-size: 0.9em; font-weight: 500; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">{stage}</div>' if stage else ''}
     </div>
+    
+    <style>
+    @keyframes spin {{
+        0% {{ transform: rotate(0deg); }}
+        100% {{ transform: rotate(360deg); }}
+    }}
+    </style>
     """
     return st.markdown(loading_html, unsafe_allow_html=True)
 
@@ -944,33 +951,40 @@ def show_enhanced_analysis_status():
     """Enhanced analysis status with smart progressive checking"""
     
     if st.session_state.analysis_status == "processing":
+
         st.markdown('<div class="glass-container">', unsafe_allow_html=True)
         
         auto_check_triggered = False
+        
         if hasattr(st.session_state, 'analysis_start_time') and st.session_state.analysis_start_time:
             elapsed_time = time.time() - st.session_state.analysis_start_time
             
             # Progressive checking intervals: 45s, 90s, 150s, 210s, etc.
             check_intervals = [45, 90, 150, 210, 270, 330]  # seconds
             
-            # Determine current check interval
-            next_check = None
+            # Initialize last_check_time if not exists
+            if not hasattr(st.session_state, 'last_check_time'):
+                st.session_state.last_check_time = 0
+            
+            # Determine if we should auto-check
             for interval in check_intervals:
-                if elapsed_time >= interval:
-                    # Check if we haven't checked at this interval yet
-                    if not hasattr(st.session_state, 'last_check_time') or st.session_state.last_check_time < interval:
-                        st.markdown('<div style="text-align: center; margin: 20px 0; color: #667eea; font-weight: 600;">⏰ Auto-checking results...</div>', unsafe_allow_html=True)
-                        st.session_state.last_check_time = interval
-                        check_for_results()
-                        auto_check_triggered = True
-                        break
-                else:
-                    next_check = interval
+                if elapsed_time >= interval and st.session_state.last_check_time < interval:
+                    st.markdown('<div style="text-align: center; margin: 20px 0; color: #667eea; font-weight: 600;">⏰ Auto-checking results...</div>', unsafe_allow_html=True)
+                    st.session_state.last_check_time = interval
+                    check_for_results()
+                    auto_check_triggered = True
                     break
             
             if not auto_check_triggered:
+                # Find next check interval
+                next_check = None
+                for interval in check_intervals:
+                    if elapsed_time < interval:
+                        next_check = interval
+                        break
+                
                 if next_check:
-                    remaining = next_check - int(elapsed_time)
+                    remaining = max(0, next_check - int(elapsed_time))
                     minutes = remaining // 60
                     seconds = remaining % 60
                     
@@ -989,9 +1003,9 @@ def show_enhanced_analysis_status():
                         estimated = "Almost done..."
                     
                     if minutes > 0:
-                        next_check_text = f"Next check in {minutes}m {seconds}s"
+                        next_check_text = f"Next auto-check in {minutes}m {seconds}s"
                     else:
-                        next_check_text = f"Next check in {seconds}s"
+                        next_check_text = f"Next auto-check in {seconds}s"
                     
                     show_loading_animation(phase, f"{estimated} • {next_check_text}")
                 else:
@@ -1024,10 +1038,12 @@ def show_enhanced_analysis_status():
                     st.session_state.raw_summary = None
                     st.session_state.ai_insights = None
                     st.session_state.analysis_start_time = None
+                    st.session_state.last_check_time = 0
                     st.rerun()
-            
-            # Force a rerun every few seconds to update the countdown
-            time.sleep(1)  # Reduced sleep time for more responsive countdown
+        
+        # Auto-refresh every 5 seconds only when processing and not auto-checking
+        if not auto_check_triggered and st.session_state.analysis_status == "processing":
+            time.sleep(5)
             st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
