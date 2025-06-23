@@ -950,87 +950,79 @@ def dashboard_interface():
 
 def show_enhanced_analysis_status():
     """Enhanced analysis status with FIXED progressive checking"""
-    
+
+    # Only run auto‐refresh while processing
     if st.session_state.analysis_status == "processing":
-        st.markdown('<div class="glass-container">', unsafe_allow_html=True)
-        
-        # --- Session state initialization ---
-        if st.session_state.get('analysis_start_time') is None:
-            st.session_state.analysis_start_time = time.time()
-        if 'last_check_time' not in st.session_state:
-            st.session_state.last_check_time = 0
-        if 'auto_check_count' not in st.session_state:
-            st.session_state.auto_check_count = 0
-        
-        elapsed_time = time.time() - st.session_state.analysis_start_time
-        
-        # --- Progressive checking intervals (in seconds) ---
-        check_intervals = [45, 90, 150, 210, 270, 330, 420, 510, 600]
-        cumulative = [sum(check_intervals[:i+1]) for i in range(len(check_intervals))]
-        
-        # --- st_autorefresh to re-run every 1s ---
+        # 1) kick off a 1 s auto‐refresh and get the tick count
         refresh_count = st_autorefresh(interval=1000, key="analysis_timer")
-        
-        # Determine current stage and remaining time
+
+        # (debug—remove in production)
+        st.write(f"⏱ refresh_count = {refresh_count}", unsafe_allow_html=True)
+
+        st.markdown('<div class="glass-container">', unsafe_allow_html=True)
+
+        # --- Progressive intervals (seconds) and cumulative sums ---
+        check_intervals = [45, 90, 150, 210, 270, 330, 420, 510, 600]
+        cumulative = [sum(check_intervals[: i+1]) for i in range(len(check_intervals))]
+
+        # --- Determine current stage based on counter ---
         stage = next((i for i, t in enumerate(cumulative) if refresh_count < t), len(check_intervals)-1)
         prev_total = cumulative[stage-1] if stage > 0 else 0
         elapsed_in_stage = refresh_count - prev_total
         remaining = max(0, check_intervals[stage] - elapsed_in_stage)
-        
-        # Auto-check logic when each interval completes
-        if refresh_count >= cumulative[stage] and st.session_state.auto_check_count <= stage:
+
+        # --- Auto‐check when we hit the end of a stage ---
+        if refresh_count >= cumulative[stage] and st.session_state.get("auto_check_count", 0) <= stage:
             st.markdown(
-                '<div style="text-align: center; margin: 20px 0; color: #667eea; font-weight: 600;">'
-                '⏰ Auto-checking results...'
+                '<div style="text-align:center; margin:20px 0; color:#667eea; font-weight:600;">'
+                '⏰ Auto‐checking results...'
                 '</div>',
                 unsafe_allow_html=True
             )
+
             st.session_state.auto_check_count = stage + 1
-            st.session_state.last_check_time = cumulative[stage]
-            
             check_for_results()
-            # If completed, skip further UI
+
             if st.session_state.analysis_status == "complete":
                 st.markdown('</div>', unsafe_allow_html=True)
                 return
-            
+
             # reset counter so next interval starts fresh
             st.session_state["analysis_timer"] = 0
-        
-        # --- Display status & countdown exactly as before ---
-        # Find the next check interval
-        next_check = next((iv for iv in check_intervals if elapsed_time < iv), None)
-        if next_check:
-            rem = int(next_check - elapsed_time)
-            mins, secs = divmod(rem, 60)
-            if elapsed_time < 60:
-                phase = "Fetching comments"; estimated = "1-2 minutes remaining"
-            elif elapsed_time < 120:
-                phase = "Analyzing sentiment"; estimated = "2-3 minutes remaining"
-            elif elapsed_time < 240:
-                phase = "Generating insights"; estimated = "1-2 minutes remaining"
-            else:
-                phase = "Finalizing results"; estimated = "Almost done..."
-            
-            next_check_text = f"{mins}m {secs}s" if mins else f"{secs}s"
-            show_loading_animation(phase, f"{estimated} • Next auto-check in {next_check_text}")
+
+        # --- Figure out human‐friendly phase/estimate by wall‐clock if you like ---
+        # (optional—can still use your original elapsed_time logic here)
+
+        # --- Show the same UI you had before, but swap in our `remaining` for countdown ---
+        # e.g. inside your show_loading_animation call:
+        mins, secs = divmod(remaining, 60)
+        next_check_text = f"{mins}m {secs}s" if mins else f"{secs}s"
+
+        # Suppose you still want your phase/estimate logic based on refresh_count:
+        if refresh_count < 60:
+            phase, estimated = "Fetching comments", "1-2 minutes remaining"
+        elif refresh_count < 120:
+            phase, estimated = "Analyzing sentiment", "2-3 minutes remaining"
+        elif refresh_count < 240:
+            phase, estimated = "Generating insights", "1-2 minutes remaining"
         else:
-            total_m, total_s = divmod(int(elapsed_time), 60)
-            show_loading_animation("Still Processing", f"Running for {total_m}m {total_s}s...")
-        
-        # Your existing progress bar & buttons
+            phase, estimated = "Finalizing results", "Almost done…"
+
+        show_loading_animation(phase, f"{estimated} • Next auto‐check in {next_check_text}")
+
+        # --- Rest of your unchanged UI below ---
         st.markdown("""
         <div class="progress-container">
-            <div style="font-weight: 600; margin-bottom: 10px;">Processing stages:</div>
-            <div style="margin-bottom: 5px;">✅ Fetching comments</div>
-            <div style="margin-bottom: 5px;">🔄 Analyzing sentiment...</div>
-            <div style="margin-bottom: 5px;">⏳ Generating insights...</div>
+            <div style="font-weight:600; margin-bottom:10px;">Processing stages:</div>
+            <div style="margin-bottom:5px;">✅ Fetching comments</div>
+            <div style="margin-bottom:5px;">🔄 Analyzing sentiment…</div>
+            <div style="margin-bottom:5px;">⏳ Generating insights…</div>
             <div class="progress-bar">
                 <div class="progress-bar-fill"></div>
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
+
         col1, col2 = st.columns(2)
         with col1:
             if st.button("🔍 Check Results Now", key="check_results", use_container_width=True):
@@ -1040,15 +1032,15 @@ def show_enhanced_analysis_status():
                 reset_analysis_state()
                 st.session_state["analysis_timer"] = 0
                 st.rerun()
-        
+
         st.markdown('</div>', unsafe_allow_html=True)
-    
+
     elif st.session_state.analysis_status == "complete":
         st.markdown(
             '<div class="status-success">✅ Analysis Complete! Results are ready below.</div>',
             unsafe_allow_html=True
         )
-    
+
     elif st.session_state.analysis_status == "error":
         st.markdown(
             '<div class="status-error">❌ Analysis failed. Please try again or check your configuration.</div>',
