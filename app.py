@@ -949,101 +949,122 @@ def dashboard_interface():
     show_analysis_results()
 
 def show_enhanced_analysis_status():
-    """Enhanced analysis status with non-blocking auto-refresh progressive checking"""
+    """Enhanced analysis status - STREAMLIT CLOUD COMPATIBLE"""
     
     if st.session_state.analysis_status == "processing":
+        st.markdown('<div class="glass-container">', unsafe_allow_html=True)
         
-        # Initialize session state variables once
-        if st.session_state.get('analysis_start_time') is None:
+        # Initialize required session state variables
+        if not hasattr(st.session_state, 'analysis_start_time') or st.session_state.analysis_start_time is None:
             st.session_state.analysis_start_time = time.time()
-        if 'last_check_time' not in st.session_state:
+        
+        if not hasattr(st.session_state, 'last_check_time'):
             st.session_state.last_check_time = 0
-        if 'auto_check_count' not in st.session_state:
+        
+        if not hasattr(st.session_state, 'auto_check_count'):
             st.session_state.auto_check_count = 0
         
-        # Wall-clock elapsed time
         elapsed_time = time.time() - st.session_state.analysis_start_time
         
-        # Your progressive checking intervals
+        # Progressive checking intervals: 45s, 90s, 150s, 210s, etc.
         check_intervals = [45, 90, 150, 210, 270, 330, 420, 510, 600]
         
-        # Auto-check if we've crossed an interval threshold
+        # Check if we should trigger auto-check (WITHOUT time.sleep)
+        should_auto_check = False
         for i, interval in enumerate(check_intervals):
             if elapsed_time >= interval and st.session_state.auto_check_count <= i:
-                st.markdown(
-                    '<div style="text-align: center; margin: 20px 0; '
-                    'color: #667eea; font-weight: 600;">⏰ Auto-checking results...</div>',
-                    unsafe_allow_html=True
-                )
+                st.markdown('<div style="text-align: center; margin: 20px 0; color: #667eea; font-weight: 600;">⏰ Auto-checking results...</div>', unsafe_allow_html=True)
                 st.session_state.auto_check_count = i + 1
                 st.session_state.last_check_time = interval
-                
-                check_for_results()
-                if st.session_state.analysis_status == "complete":
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    return
+                should_auto_check = True
                 break
         
-        # Display your phase, estimate, and countdown exactly as before
-        # Determine next interval for countdown
-        next_check = next((iv for iv in check_intervals if elapsed_time < iv), None)
-        if next_check:
-            remaining = max(0, int(next_check - elapsed_time))
-            m, s = divmod(remaining, 60)
-            if elapsed_time < 60:
-                phase, estimated = "Fetching comments", "1-2 minutes remaining"
-            elif elapsed_time < 120:
-                phase, estimated = "Analyzing sentiment", "2-3 minutes remaining"
-            elif elapsed_time < 240:
-                phase, estimated = "Generating insights", "1-2 minutes remaining"
-            else:
-                phase, estimated = "Finalizing results", "Almost done..."
+        # Perform auto-check if needed
+        if should_auto_check:
+            check_result = check_for_results()
+            # If results found, stop processing
+            if st.session_state.analysis_status == "complete":
+                st.rerun()  # Rerun once to show results
+                return
+        
+        # Display current status only if still processing
+        if st.session_state.analysis_status == "processing":
+            # Find next check interval for display
+            next_check = None
+            for interval in check_intervals:
+                if elapsed_time < interval:
+                    next_check = interval
+                    break
             
-            next_text = f"{m}m {s}s" if m else f"{s}s"
-            show_loading_animation(phase, f"{estimated} • Next auto-check in {next_text}")
-        else:
-            tm, ts = divmod(int(elapsed_time), 60)
-            show_loading_animation("Still Processing", f"Running for {tm}m {ts}s...")
-        
-        # Your existing progress bar & buttons
-        st.markdown("""
-        <div class="progress-container">
-            <div style="font-weight: 600; margin-bottom: 10px;">Processing stages:</div>
-            <div style="margin-bottom: 5px;">✅ Fetching comments</div>
-            <div style="margin-bottom: 5px;">🔄 Analyzing sentiment...</div>
-            <div style="margin-bottom: 5px;">⏳ Generating insights...</div>
-            <div class="progress-bar">
-                <div class="progress-bar-fill"></div>
+            if next_check:
+                remaining = max(0, int(next_check - elapsed_time))
+                minutes = remaining // 60
+                seconds = remaining % 60
+                
+                # Determine current phase based on elapsed time
+                if elapsed_time < 60:
+                    phase = "Fetching comments"
+                    estimated = "1-2 minutes remaining"
+                elif elapsed_time < 120:
+                    phase = "Analyzing sentiment"
+                    estimated = "2-3 minutes remaining"
+                elif elapsed_time < 240:
+                    phase = "Generating insights"
+                    estimated = "1-2 minutes remaining"
+                else:
+                    phase = "Finalizing results"
+                    estimated = "Almost done..."
+                
+                if minutes > 0:
+                    next_check_text = f"Next auto-check in {minutes}m {seconds}s"
+                else:
+                    next_check_text = f"Next auto-check in {seconds}s"
+                
+                show_loading_animation(phase, f"{estimated} • {next_check_text}")
+            else:
+                show_loading_animation("Still Processing", f"Running for {int(elapsed_time//60)}m {int(elapsed_time%60)}s...")
+            
+            # Progress simulation
+            progress_percentage = min(90, (elapsed_time / 300) * 100)  # Cap at 90% until complete
+            
+            st.markdown(f"""
+            <div class="progress-container">
+                <div style="font-weight: 600; margin-bottom: 10px;">Processing stages:</div>
+                <div style="margin-bottom: 5px;">✅ Fetching comments</div>
+                <div style="margin-bottom: 5px;">{'✅' if elapsed_time > 60 else '🔄'} Analyzing sentiment...</div>
+                <div style="margin-bottom: 5px;">{'✅' if elapsed_time > 120 else '⏳'} Generating insights...</div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: {progress_percentage}%;"></div>
+                </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔍 Check Results Now", key="check_results", use_container_width=True):
-                check_for_results()
-        with col2:
-            if st.button("🔄 Reset Analysis", key="reset_analysis", use_container_width=True):
-                reset_analysis_state()
-                st.session_state["analysis_timer"] = 0
-                st.rerun()
+            """, unsafe_allow_html=True)
+            
+            col1, col2, col3 = st.columns([1, 1, 1])
+            with col1:
+                if st.button("🔍 Check Results Now", key="check_results", use_container_width=True):
+                    check_for_results()
+                    st.rerun()
+            
+            with col2:
+                if st.button("🔄 Refresh Status", key="refresh_status", use_container_width=True):
+                    st.rerun()
+            
+            with col3:
+                if st.button("🛑 Reset Analysis", key="reset_analysis", use_container_width=True):
+                    reset_analysis_state()
+                    st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # NON-BLOCKING auto-refresh every 1 second
-        st_autorefresh(interval=1000, key="analysis_timer")
-    
+        # REMOVED: Auto-refresh with time.sleep() - this was causing the issues
+        # Instead, users can manually refresh or wait for auto-checks
+        
     elif st.session_state.analysis_status == "complete":
-        st.markdown(
-            '<div class="status-success">✅ Analysis Complete! Results are ready below.</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown('<div class="status-success">✅ Analysis Complete! Results are ready below.</div>', unsafe_allow_html=True)
     
     elif st.session_state.analysis_status == "error":
-        st.markdown(
-            '<div class="status-error">❌ Analysis failed. Please try again or check your configuration.</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown('<div class="status-error">❌ Analysis failed. Please try again or check your configuration.</div>', unsafe_allow_html=True)
+
         
 def reset_analysis_state():
     """Helper function to reset all analysis-related state"""
