@@ -1253,7 +1253,7 @@ def trigger_sentiment_analysis(video_id):
         return False
         
 def check_for_results():
-    """DEBUG VERSION: Check results with detailed logging"""
+    """FIXED VERSION: Check results with proper GCS authentication"""
     
     # Add debug info
     st.write("🔍 **DEBUG: Starting check_for_results()**")
@@ -1267,22 +1267,56 @@ def check_for_results():
     
     # Check configuration
     bucket_name = st.secrets.get("RESULTS_BUCKET", os.getenv("RESULTS_BUCKET"))
+    project_id = st.secrets.get("GOOGLE_CLOUD_PROJECT", os.getenv("GOOGLE_CLOUD_PROJECT"))
+    
     if not bucket_name:
         st.error("❌ DEBUG: RESULTS_BUCKET configuration missing")
+        return False
+    
+    if not project_id:
+        st.error("❌ DEBUG: GOOGLE_CLOUD_PROJECT configuration missing")
         st.write("**Available secrets:**", list(st.secrets.keys()) if hasattr(st, 'secrets') else "No secrets found")
-        st.session_state.analysis_status = "error"
         return False
     
     st.write(f"🪣 **DEBUG: Using bucket:** `{bucket_name}`")
+    st.write(f"🏗️ **DEBUG: Using project:** `{project_id}`")
     
     try:
         st.write("🔄 **DEBUG: Initializing Google Cloud Storage client...**")
         
-        # Initialize Google Cloud client
-        client = storage.Client()
-        bucket = client.bucket(bucket_name)
+        # METHOD 1: Initialize with explicit project ID
+        try:
+            client = storage.Client(project=project_id)
+            st.write("✅ **DEBUG: Client initialized with explicit project ID**")
+        except Exception as client_error:
+            st.error(f"❌ **DEBUG: Failed to create client with project ID:** {str(client_error)}")
+            
+            # METHOD 2: Try with service account key
+            service_account_key = st.secrets.get("GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY")
+            if service_account_key:
+                st.write("🔄 **DEBUG: Trying with service account key...**")
+                try:
+                    import json
+                    from google.oauth2 import service_account
+                    
+                    # Parse service account key
+                    if isinstance(service_account_key, str):
+                        credentials_info = json.loads(service_account_key)
+                    else:
+                        credentials_info = service_account_key
+                    
+                    credentials = service_account.Credentials.from_service_account_info(credentials_info)
+                    client = storage.Client(project=project_id, credentials=credentials)
+                    st.write("✅ **DEBUG: Client initialized with service account key**")
+                    
+                except Exception as sa_error:
+                    st.error(f"❌ **DEBUG: Service account method failed:** {str(sa_error)}")
+                    return False
+            else:
+                st.error("❌ **DEBUG: No service account key found in secrets**")
+                return False
         
-        st.write("✅ **DEBUG: Client initialized successfully**")
+        bucket = client.bucket(bucket_name)
         
         # List blobs with debug info
         st.write(f"🔍 **DEBUG: Looking for files with prefix:** `{video_id}`")
