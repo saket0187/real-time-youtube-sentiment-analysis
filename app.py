@@ -15,6 +15,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import json
+from google.oauth2 import service_account
 
 # ─── Load .env & configure Gemini ─────────────────────────────────────────────
 load_dotenv()
@@ -1126,46 +1127,64 @@ def trigger_sentiment_analysis(video_id):
         placeholder.markdown(f'<div class="status-error">❌ Function call failed: {str(e)}</div>', unsafe_allow_html=True)
 
 def check_for_results():
-    """FIXED results checking with better error handling and return value"""
+    """Results checking with better error handling and support for Streamlit Cloud secrets."""
+    import json
+    from google.oauth2 import service_account
+
     video_id = st.session_state.selected_video['video_id']
     bucket_name = st.secrets.get("RESULTS_BUCKET", os.getenv("RESULTS_BUCKET"))
-    
+
     if not bucket_name:
         st.markdown('<div class="status-error">❌ RESULTS_BUCKET missing in configuration.</div>', unsafe_allow_html=True)
         return False
-    
+
+    # --- GCS authentication: support for Streamlit Cloud secrets ---
+    client = None
     try:
-        client = storage.Client()
+        if "GOOGLE_APPLICATION_CREDENTIALS" in st.secrets:
+            service_account_info = json.loads(st.secrets["GOOGLE_APPLICATION_CREDENTIALS"])
+            credentials = service_account.Credentials.from_service_account_info(service_account_info)
+            client = storage.Client(credentials=credentials)
+        else:
+            client = storage.Client()
+    except Exception as e:
+        error_placeholder = st.empty()
+        error_placeholder.markdown(f'<div class="status-error">❌ GCS auth failed: {str(e)}</div>', unsafe_allow_html=True)
+        time.sleep(3)
+        error_placeholder.empty()
+        return False
+
+    try:
         bucket = client.bucket(bucket_name)
-        
+
         # List all blobs with video_id prefix
         blobs = list(bucket.list_blobs(prefix=video_id))
-        
+
         if blobs:
             # Get the most recent blob
             latest_blob = max(blobs, key=lambda b: b.time_created)
-            
+
             # Check if this is a new result (not already processed)
             blob_name = latest_blob.name
             if hasattr(st.session_state, 'last_processed_blob') and st.session_state.last_processed_blob == blob_name:
                 return False  # Already processed this result
-            
+
             # Download the content
             content = latest_blob.download_as_text()
-            
+
             # Validate content is not empty or error
             if content and len(content.strip()) > 50:  # Basic validation
                 # Store in session state
                 st.session_state.raw_summary = content
                 st.session_state.analysis_status = "complete"
                 st.session_state.last_processed_blob = blob_name
-                
+
                 # Show success message briefly
                 success_placeholder = st.empty()
                 success_placeholder.markdown(f'<div class="status-success">✅ Results found! File: {latest_blob.name}</div>', unsafe_allow_html=True)
                 time.sleep(2)
                 success_placeholder.empty()
-                
+
                 return True
             else:
                 st.warning("⚠️ Found result file but content appears incomplete. Continuing to wait...")
@@ -1173,7 +1192,7 @@ def check_for_results():
         else:
             # No results found yet
             return False
-            
+
     except Exception as e:
         error_placeholder = st.empty()
         error_placeholder.markdown(f'<div class="status-error">❌ Error checking results: {str(e)}</div>', unsafe_allow_html=True)
