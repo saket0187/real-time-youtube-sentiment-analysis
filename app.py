@@ -15,7 +15,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import json
-from streamlit_autorefresh import st_autorefresh
 
 # ─── Load .env & configure Gemini ─────────────────────────────────────────────
 load_dotenv()
@@ -698,27 +697,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ─── Session state init ───────────────────────────────────────────────────────
-def init_session_state():
-    """Centralized session state initialization - ADD THIS AT TOP OF YOUR APP"""
-    defaults = {
-        "search_results": [],
-        "selected_video": None,
-        "raw_summary": None,
-        "ai_insights": None,
-        "analysis_status": "idle",
-        "dashboard_mode": False,
-        "processing_stage": "",
-        "analysis_start_time": None,
-        "last_check_time": None,
-        "check_count": 0,
-        "last_processed_blob": None,
-        "error_count": 0
-    }
-    
-    for key, default_value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = default_value
-            
 if "search_results" not in st.session_state:
     st.session_state.search_results = []
 if "selected_video" not in st.session_state:
@@ -735,50 +713,25 @@ if "processing_stage" not in st.session_state:
     st.session_state.processing_stage = ""
 if "analysis_start_time" not in st.session_state:
     st.session_state.analysis_start_time = None
-if "auto_check_count" not in st.session_state:
-    st.session_state.auto_check_count = 0
-if "last_processed_blob" not in st.session_state:
-    st.session_state.last_processed_blob = None
 
 # ─── Enhanced Loading Animation ──────────────────────────────────────────────
-def show_loading_animation(phase, estimate, show_time=False):
-    """FIXED: Simple loading animation without complex state changes"""
-    
-    if show_time and st.session_state.analysis_start_time:
-        elapsed = time.time() - st.session_state.analysis_start_time
-        minutes = int(elapsed // 60)
-        seconds = int(elapsed % 60)
-        time_str = f" ({minutes}m {seconds}s elapsed)"
-    else:
-        time_str = ""
-    
-    st.markdown(f"""
-    <div style="
-        text-align: center;
-        padding: 20px;
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(255,255,255,0.1));
-        border-radius: 15px;
-        border: 1px solid rgba(255,255,255,0.2);
-        margin: 20px 0;
-    ">
-        <div style="font-size: 1.2em; font-weight: bold; color: #333; margin-bottom: 10px;">
-            🔄 {phase}{time_str}
-        </div>
-        <div style="color: #666; font-size: 0.9em;">
-            {estimate}
-        </div>
-        <div style="margin-top: 15px;">
-            <div style="display: inline-block; animation: spin 1s linear infinite;">⚙️</div>
-        </div>
+def show_loading_animation(text="Processing", stage=""):
+    """Enhanced loading animation with stages and darker text for better visibility"""
+    loading_html = f"""
+    <div style="text-align: center; margin: 20px 0;">
+        <div style="border: 3px solid rgba(255, 255, 255, 0.3); border-top: 3px solid #ffffff; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 15px auto;"></div>
+        <div style="font-size: 18px; margin-bottom: 5px; color: #ffffff; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">{text}</div>
+        {f'<div style="margin-top: 10px; color: #e0e0e0; font-size: 0.9em; font-weight: 500; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">{stage}</div>' if stage else ''}
     </div>
+    
     <style>
     @keyframes spin {{
         0% {{ transform: rotate(0deg); }}
         100% {{ transform: rotate(360deg); }}
     }}
     </style>
-    """, unsafe_allow_html=True)
-    
+    """
+    return st.markdown(loading_html, unsafe_allow_html=True)
 
 # ─── Enhanced Header ──────────────────────────────────────────────────────────
 def show_header():
@@ -879,6 +832,8 @@ def perform_search(query, max_results):
         ]
         
         placeholder.markdown(f'<div class="status-success">✅ Found {len(st.session_state.search_results)} videos!</div>', unsafe_allow_html=True)
+        time.sleep(1)
+        placeholder.empty()
         
     except Exception as e:
         placeholder.markdown(f'<div class="status-error">❌ Search failed: {str(e)}</div>', unsafe_allow_html=True)
@@ -946,80 +901,16 @@ def display_search_results():
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ─── Enhanced Dashboard Interface (FIXED) ────────────────────────────────────────────
-def display_search_results():
-    """Enhanced search results display"""
-    if st.session_state.search_results:
-        # Display count outside the container with better styling
-        st.markdown(f'''
-        <div style="
-            font-size: 1.4em; 
-            font-weight: 700; 
-            color: white; 
-            margin: 20px 0 15px 0; 
-            text-align: center;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            background: rgba(255,255,255,0.1);
-            padding: 12px 25px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-        ">
-            📺 Found {len(st.session_state.search_results)} Videos
-        </div>
-        ''', unsafe_allow_html=True)
-        
-        for i, video in enumerate(st.session_state.search_results):
-            st.markdown('<div class="video-card">', unsafe_allow_html=True)
-            
-            cols = st.columns([1, 4, 1])
-            
-            with cols[0]:
-                st.image(video["thumbnail"], width=150)
-            
-            with cols[1]:
-                st.markdown(f'<div class="video-title">{video["title"]}</div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="video-meta">📺 {video["channel"]} • 📅 {video["published"]}</div>', unsafe_allow_html=True)
-                description = video.get("description", "")
-                if description:
-                    st.markdown(f'''
-                    <div style="
-                        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(255,255,255,0.9));
-                        border-left: 4px solid #667eea;
-                        padding: 15px;
-                        border-radius: 10px;
-                        margin: 10px 0;
-                        color: #333;
-                        line-height: 1.5;
-                    ">
-                        📝 <strong>Description:</strong><br>
-                        {description[:250] + ('...' if len(description) > 250 else '')}
-                    </div>
-                    ''', unsafe_allow_html=True)
-            
-            with cols[2]:
-                if st.button("🚀 Analyze", key=f"select_{i}", use_container_width=True):
-                    st.session_state.selected_video = video
-                    st.session_state.search_results = []
-                    st.session_state.dashboard_mode = True
-                    reset_analysis_state()
-                    st.rerun()
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-
-# ─── STREAMLIT CLOUD SAFE Dashboard Interface ───────────────────────────────
 def dashboard_interface():
-    """REPLACED: Cloud-safe dashboard interface"""
-    
-    # Initialize session state
-    init_session_state()
-    
     video = st.session_state.selected_video
     
     # Back button
     if st.button("← Back to Search", key="back_button"):
         st.session_state.dashboard_mode = False
         st.session_state.selected_video = None
-        reset_analysis_state()
+        st.session_state.raw_summary = None
+        st.session_state.ai_insights = None
+        st.session_state.analysis_status = "idle"
         st.rerun()
     
     st.markdown("---")
@@ -1048,9 +939,7 @@ def dashboard_interface():
         # Analysis button
         if st.session_state.analysis_status == "idle":
             if st.button("🚀 Start Sentiment Analysis", use_container_width=True, key="start_analysis"):
-                success = trigger_sentiment_analysis(video['video_id'])
-                if success:
-                    st.rerun()
+                trigger_sentiment_analysis(video['video_id'])
     
     st.markdown('</div>', unsafe_allow_html=True)
     
@@ -1058,341 +947,239 @@ def dashboard_interface():
     show_enhanced_analysis_status()
     show_analysis_results()
 
-# Also add this debug version of the button handler
 def show_enhanced_analysis_status():
-    """DEBUG VERSION with detailed button feedback"""
+    """Enhanced analysis status with FIXED progressive checking"""
     
     if st.session_state.analysis_status == "processing":
         st.markdown('<div class="glass-container">', unsafe_allow_html=True)
         
-        # Initialize time tracking safely
-        if st.session_state.analysis_start_time is None:
+        # Initialize required session state variables
+        if not hasattr(st.session_state, 'analysis_start_time') or st.session_state.analysis_start_time is None:
             st.session_state.analysis_start_time = time.time()
-            st.session_state.check_count = 0
+        
+        if not hasattr(st.session_state, 'last_check_time'):
+            st.session_state.last_check_time = 0
+        
+        if not hasattr(st.session_state, 'auto_check_count'):
+            st.session_state.auto_check_count = 0
         
         elapsed_time = time.time() - st.session_state.analysis_start_time
         
-        # Show current status with time
-        if elapsed_time < 60:
-            phase = "Fetching comments from YouTube"
-            estimate = "Usually takes 1-2 minutes"
-        elif elapsed_time < 180:
-            phase = "Analyzing sentiment with AI"
-            estimate = "Processing comments..."
-        else:
-            phase = "Finalizing results"
-            estimate = "Almost done!"
+        # Progressive checking intervals: 45s, 90s, 150s, 210s, etc.
+        check_intervals = [45, 90, 150, 210, 270, 330, 420, 510, 600]  # Added more intervals
         
-        show_loading_animation(phase, estimate, show_time=True)
+        auto_check_triggered = False
         
-        # DEBUG: Show current state
-        st.write("**DEBUG INFO:**")
-        st.write(f"- Analysis Status: `{st.session_state.analysis_status}`")
-        st.write(f"- Selected Video: `{st.session_state.selected_video['video_id'] if st.session_state.selected_video else 'None'}`")
-        st.write(f"- Last Processed Blob: `{st.session_state.last_processed_blob}`")
-        st.write(f"- Elapsed Time: `{elapsed_time:.1f} seconds`")
+        # Check if we should trigger auto-check
+        for i, interval in enumerate(check_intervals):
+            if elapsed_time >= interval and st.session_state.auto_check_count <= i:
+                st.markdown('<div style="text-align: center; margin: 20px 0; color: #667eea; font-weight: 600;">⏰ Auto-checking results...</div>', unsafe_allow_html=True)
+                st.session_state.auto_check_count = i + 1
+                st.session_state.last_check_time = interval
+                
+                # Trigger check and break to avoid infinite loop
+                check_result = check_for_results()
+                auto_check_triggered = True
+                
+                # If results found, don't continue processing
+                if st.session_state.analysis_status == "complete":
+                    break
+                
+                # Add a small delay to prevent rapid re-checking
+                time.sleep(2)
+                break
         
-        # Manual controls with debug feedback
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("🔍 Check Results Now", key="manual_check", use_container_width=True):
-                st.write("🔄 **Button clicked! Checking results...**")
-                with st.spinner("Checking for results..."):
-                    result = check_for_results()
-                if result:
-                    st.write("✅ **Results found! Rerunning app...**")
-                    st.rerun()
+        # Display current status
+        if st.session_state.analysis_status == "processing":  # Only show if still processing
+            # Find next check interval for display
+            next_check = None
+            for interval in check_intervals:
+                if elapsed_time < interval:
+                    next_check = interval
+                    break
+            
+            if next_check:
+                remaining = max(0, int(next_check - elapsed_time))
+                minutes = remaining // 60
+                seconds = remaining % 60
+                
+                # Determine current phase based on elapsed time
+                if elapsed_time < 60:
+                    phase = "Fetching comments"
+                    estimated = "1-2 minutes remaining"
+                elif elapsed_time < 120:
+                    phase = "Analyzing sentiment"
+                    estimated = "2-3 minutes remaining"
+                elif elapsed_time < 240:
+                    phase = "Generating insights"
+                    estimated = "1-2 minutes remaining"
                 else:
-                    st.write("❌ **No results yet. Try again in 1-2 minutes.**")
-        
-        with col2:
-            if st.button("🔄 Refresh Status", key="refresh_status", use_container_width=True):
-                st.write("🔄 **Refreshing page...**")
-                st.rerun()
-        
-        with col3:
-            if st.button("❌ Cancel Analysis", key="cancel_analysis", use_container_width=True):
-                st.write("❌ **Cancelling analysis...**")
-                reset_analysis_state()
-                st.rerun()
-        
-        # Progress indicator
-        progress_value = min(0.9, elapsed_time / 300)
-        st.progress(progress_value, text=f"Analysis Progress: {int(progress_value * 100)}%")
-        
-        # Timeout warning
-        if elapsed_time > 600:  # 10 minutes
-            st.warning("⚠️ Analysis is taking longer than expected. You may want to try again.")
-            if st.button("🔄 Start Fresh Analysis", key="restart_analysis"):
-                reset_analysis_state()
-                st.rerun()
+                    phase = "Finalizing results"
+                    estimated = "Almost done..."
+                
+                if minutes > 0:
+                    next_check_text = f"Next auto-check in {minutes}m {seconds}s"
+                else:
+                    next_check_text = f"Next auto-check in {seconds}s"
+                
+                show_loading_animation(phase, f"{estimated} • {next_check_text}")
+            else:
+                show_loading_animation("Still Processing", f"Running for {int(elapsed_time//60)}m {int(elapsed_time%60)}s...")
+            
+            # Progress simulation
+            st.markdown("""
+            <div class="progress-container">
+                <div style="font-weight: 600; margin-bottom: 10px;">Processing stages:</div>
+                <div style="margin-bottom: 5px;">✅ Fetching comments</div>
+                <div style="margin-bottom: 5px;">🔄 Analyzing sentiment...</div>
+                <div style="margin-bottom: 5px;">⏳ Generating insights...</div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🔍 Check Results Now", key="check_results", use_container_width=True):
+                    check_for_results()
+            
+            with col2:
+                if st.button("🔄 Reset Analysis", key="reset_analysis", use_container_width=True):
+                    reset_analysis_state()
+                    st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Auto-refresh - but only if still processing and not just auto-checked
+        if not auto_check_triggered and st.session_state.analysis_status == "processing":
+            # Use st.empty() placeholder for smoother refresh
+            if 'refresh_placeholder' not in st.session_state:
+                st.session_state.refresh_placeholder = st.empty()
+            
+            # Refresh every 10 seconds instead of 5 to reduce server load
+            time.sleep(1)
+            st.rerun()
     
     elif st.session_state.analysis_status == "complete":
-        st.success("✅ Analysis Complete! Results are ready below.")
+        st.markdown('<div class="status-success">✅ Analysis Complete! Results are ready below.</div>', unsafe_allow_html=True)
     
     elif st.session_state.analysis_status == "error":
-        st.error("❌ Analysis failed. Please try again.")
-        if st.button("🔄 Try Again", key="retry_analysis"):
-            reset_analysis_state()
-            st.rerun()
+        st.markdown('<div class="status-error">❌ Analysis failed. Please try again or check your configuration.</div>', unsafe_allow_html=True)
 
 def reset_analysis_state():
-    """REPLACED: Clean reset of all analysis state"""
+    """Helper function to reset all analysis-related state"""
     st.session_state.analysis_status = "idle"
     st.session_state.raw_summary = None
     st.session_state.ai_insights = None
     st.session_state.analysis_start_time = None
-    st.session_state.last_check_time = None
-    st.session_state.check_count = 0
-    st.session_state.last_processed_blob = None
-    st.session_state.error_count = 0
-    st.session_state.processing_stage = ""
+    st.session_state.last_check_time = 0
+    st.session_state.auto_check_count = 0
+    if 'refresh_placeholder' in st.session_state:
+        del st.session_state.refresh_placeholder
 
 def trigger_sentiment_analysis(video_id):
-    """FIXED: Better error handling and user feedback"""
+    """Enhanced analysis trigger with better error handling"""
     func_url = st.secrets.get("COMMENTS_FUNC_URL", os.getenv("COMMENTS_FUNC_URL"))
     bucket_name = st.secrets.get("RESULTS_BUCKET", os.getenv("RESULTS_BUCKET"))
     
     if not func_url or not bucket_name:
-        st.error("❌ Missing configuration: COMMENTS_FUNC_URL or RESULTS_BUCKET")
-        return False
+        st.markdown('<div class="status-error">❌ COMMENTS_FUNC_URL or RESULTS_BUCKET missing in configuration.</div>', unsafe_allow_html=True)
+        return
     
-    # Reset state before starting
+    # Reset state before starting new analysis
     reset_analysis_state()
     
-    # Create placeholders for dynamic updates
-    progress_container = st.empty()
-    status_container = st.empty()
+    placeholder = st.empty()
+    with placeholder.container():
+        show_loading_animation("Triggering Analysis", "Sending request to cloud function...")
     
     try:
-        # Show initial progress
-        with progress_container.container():
-            progress_bar = st.progress(0, text="Initializing analysis...")
-        
-        with status_container.container():
-            st.info("🚀 Starting sentiment analysis...")
-        
-        # Update progress
-        progress_bar.progress(25, text="Sending request to cloud function...")
-        
-        # Make request with appropriate timeout for Streamlit Cloud
         response = requests.post(
-            func_url,
+            func_url, 
             json={"video_url": f"https://www.youtube.com/watch?v={video_id}"},
-            timeout=30,  # Shorter timeout
-            headers={'Content-Type': 'application/json'}
+            timeout=30
         )
         
-        progress_bar.progress(75, text="Request sent, checking response...")
-        
         if response.status_code == 200:
-            progress_bar.progress(100, text="Analysis started successfully!")
-            
-            # Set processing state
             st.session_state.analysis_status = "processing"
             st.session_state.analysis_start_time = time.time()
-            st.session_state.check_count = 0
-            st.session_state.error_count = 0
-            
-            # Show success and clear progress
-            with status_container.container():
-                st.success("✅ Analysis started! Use 'Check Results Now' button to monitor progress.")
-            
-            # Clear progress after short delay
+            st.session_state.auto_check_count = 0
+            placeholder.markdown('<div class="status-success">✅ Analysis started successfully!</div>', unsafe_allow_html=True)
             time.sleep(2)
-            progress_container.empty()
-            
-            return True
-            
+            placeholder.empty()
+            st.rerun()
         else:
-            # Handle HTTP errors
-            error_msg = f"Cloud function returned error: {response.status_code}"
-            try:
-                error_detail = response.json().get('error', 'Unknown error')
-                error_msg += f" - {error_detail}"
-            except:
-                error_msg += f" - Response: {response.text[:200]}"
-            
-            progress_container.empty()
-            with status_container.container():
-                st.error(f"❌ {error_msg}")
-            
             st.session_state.analysis_status = "error"
-            return False
-    
+            placeholder.markdown(f'<div class="status-error">❌ Function call failed with status: {response.status_code}<br>Response: {response.text}</div>', unsafe_allow_html=True)
+            
     except requests.exceptions.Timeout:
-        # Handle timeout gracefully
-        progress_container.empty()
-        with status_container.container():
-            st.warning("⚠️ Request timed out, but analysis may still be running in the background. Try checking for results.")
-        
-        # Assume it might be processing
         st.session_state.analysis_status = "processing"
         st.session_state.analysis_start_time = time.time()
-        st.session_state.check_count = 0
-        
-        return True
-    
-    except requests.exceptions.ConnectionError:
-        progress_container.empty()
-        with status_container.container():
-            st.error("❌ Could not connect to the analysis service. Please check your internet connection.")
-        
-        st.session_state.analysis_status = "error"
-        return False
-    
+        st.session_state.auto_check_count = 0
+        placeholder.markdown('<div class="status-processing">⏳ Function call timed out, but analysis may still be running. Will check for results automatically.</div>', unsafe_allow_html=True)
+        time.sleep(2)
+        placeholder.empty()
+        st.rerun()
     except Exception as e:
-        progress_container.empty()
-        with status_container.container():
-            st.error(f"❌ Unexpected error: {str(e)}")
-        
         st.session_state.analysis_status = "error"
-        return False
-        
+        placeholder.markdown(f'<div class="status-error">❌ Function call failed: {str(e)}</div>', unsafe_allow_html=True)
+
 def check_for_results():
-    """FIXED VERSION: Check results with proper GCS authentication"""
-    
-    # Add debug info
-    st.write("🔍 **DEBUG: Starting check_for_results()**")
-    
-    if not st.session_state.selected_video:
-        st.error("❌ DEBUG: No video selected")
-        return False
-    
+    """FIXED results checking with better error handling and return value"""
     video_id = st.session_state.selected_video['video_id']
-    st.write(f"📹 **DEBUG: Checking for video_id:** `{video_id}`")
-    
-    # Check configuration
     bucket_name = st.secrets.get("RESULTS_BUCKET", os.getenv("RESULTS_BUCKET"))
-    project_id = st.secrets.get("GOOGLE_CLOUD_PROJECT", os.getenv("GOOGLE_CLOUD_PROJECT"))
     
     if not bucket_name:
-        st.error("❌ DEBUG: RESULTS_BUCKET configuration missing")
+        st.markdown('<div class="status-error">❌ RESULTS_BUCKET missing in configuration.</div>', unsafe_allow_html=True)
         return False
-    
-    if not project_id:
-        st.error("❌ DEBUG: GOOGLE_CLOUD_PROJECT configuration missing")
-        st.write("**Available secrets:**", list(st.secrets.keys()) if hasattr(st, 'secrets') else "No secrets found")
-        return False
-    
-    st.write(f"🪣 **DEBUG: Using bucket:** `{bucket_name}`")
-    st.write(f"🏗️ **DEBUG: Using project:** `{project_id}`")
     
     try:
-        st.write("🔄 **DEBUG: Initializing Google Cloud Storage client...**")
-        
-        # METHOD 1: Initialize with explicit project ID
-        try:
-            client = storage.Client(project=project_id)
-            st.write("✅ **DEBUG: Client initialized with explicit project ID**")
-        except Exception as client_error:
-            st.error(f"❌ **DEBUG: Failed to create client with project ID:** {str(client_error)}")
-            
-            # METHOD 2: Try with service account key
-            service_account_key = st.secrets.get("GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY")
-            if service_account_key:
-                st.write("🔄 **DEBUG: Trying with service account key...**")
-                try:
-                    import json
-                    from google.oauth2 import service_account
-                    
-                    # Parse service account key
-                    if isinstance(service_account_key, str):
-                        credentials_info = json.loads(service_account_key)
-                    else:
-                        credentials_info = service_account_key
-                    
-                    credentials = service_account.Credentials.from_service_account_info(credentials_info)
-                    client = storage.Client(project=project_id, credentials=credentials)
-                    st.write("✅ **DEBUG: Client initialized with service account key**")
-                    
-                except Exception as sa_error:
-                    st.error(f"❌ **DEBUG: Service account method failed:** {str(sa_error)}")
-                    return False
-            else:
-                st.error("❌ **DEBUG: No service account key found in secrets**")
-                return False
-        
+        client = storage.Client()
         bucket = client.bucket(bucket_name)
         
-        # List blobs with debug info
-        st.write(f"🔍 **DEBUG: Looking for files with prefix:** `{video_id}`")
+        # List all blobs with video_id prefix
+        blobs = list(bucket.list_blobs(prefix=video_id))
         
-        try:
-            blobs = list(bucket.list_blobs(prefix=video_id, timeout=15))
-            st.write(f"📁 **DEBUG: Found {len(blobs)} files**")
+        if blobs:
+            # Get the most recent blob
+            latest_blob = max(blobs, key=lambda b: b.time_created)
             
-            # Show all found files
-            if blobs:
-                for i, blob in enumerate(blobs):
-                    st.write(f"   - File {i+1}: `{blob.name}` (size: {blob.size} bytes, created: {blob.time_created})")
-            else:
-                st.write("   - No files found yet")
+            # Check if this is a new result (not already processed)
+            blob_name = latest_blob.name
+            if hasattr(st.session_state, 'last_processed_blob') and st.session_state.last_processed_blob == blob_name:
+                return False  # Already processed this result
+            
+            # Download the content
+            content = latest_blob.download_as_text()
+            
+            # Validate content is not empty or error
+            if content and len(content.strip()) > 50:  # Basic validation
+                # Store in session state
+                st.session_state.raw_summary = content
+                st.session_state.analysis_status = "complete"
+                st.session_state.last_processed_blob = blob_name
                 
-        except Exception as list_error:
-            st.error(f"❌ **DEBUG: Error listing files:** {str(list_error)}")
-            return False
-        
-        if not blobs:
-            st.info("⏳ **DEBUG: No results found yet. Analysis is still running...**")
-            return False
-        
-        # Get the most recent blob
-        latest_blob = max(blobs, key=lambda b: b.time_created)
-        blob_name = latest_blob.name
-        st.write(f"📄 **DEBUG: Latest file:** `{blob_name}`")
-        
-        # Check if this is a new result
-        if st.session_state.last_processed_blob == blob_name:
-            st.info(f"📄 **DEBUG: Same result file found (`{blob_name}`). Waiting for updates...**")
-            return False
-        
-        st.write(f"📥 **DEBUG: Downloading file:** `{blob_name}`")
-        
-        # Download with timeout and size check
-        try:
-            # Check blob size first
-            if latest_blob.size is None or latest_blob.size == 0:
-                st.info(f"⏳ **DEBUG: Result file is empty (size: {latest_blob.size}). Still being written...**")
+                # Show success message briefly
+                success_placeholder = st.empty()
+                success_placeholder.markdown(f'<div class="status-success">✅ Results found! File: {latest_blob.name}</div>', unsafe_allow_html=True)
+                time.sleep(2)
+                success_placeholder.empty()
+                
+                return True
+            else:
+                st.warning("⚠️ Found result file but content appears incomplete. Continuing to wait...")
                 return False
-            
-            st.write(f"📊 **DEBUG: File size:** {latest_blob.size} bytes")
-            
-            # Download with timeout
-            content = latest_blob.download_as_text(timeout=15)
-            
-            st.write(f"📝 **DEBUG: Downloaded {len(content)} characters**")
-            
-            # Show first 200 characters
-            st.write(f"📖 **DEBUG: Content preview:** `{content[:200]}...`")
-            
-            # Validate content
-            if not content or len(content.strip()) < 50:
-                st.info(f"⏳ **DEBUG: Content too short ({len(content)} chars). File appears incomplete...**")
-                return False
-            
-            # Success!
-            st.success(f"✅ **DEBUG: Successfully processed file:** `{blob_name}`")
-            st.session_state.raw_summary = content
-            st.session_state.analysis_status = "complete"
-            st.session_state.last_processed_blob = blob_name
-            
-            return True
-            
-        except Exception as download_error:
-            st.error(f"❌ **DEBUG: Download error:** {str(download_error)}")
+        else:
+            # No results found yet
             return False
-    
+            
     except Exception as e:
-        st.error(f"❌ **DEBUG: General error:** {str(e)}")
-        st.write(f"**Error type:** {type(e).__name__}")
-        import traceback
-        st.code(traceback.format_exc())
+        error_placeholder = st.empty()
+        error_placeholder.markdown(f'<div class="status-error">❌ Error checking results: {str(e)}</div>', unsafe_allow_html=True)
+        time.sleep(3)
+        error_placeholder.empty()
         return False
-
 
 def show_analysis_results():
     """Enhanced results display with better error handling"""
