@@ -1058,8 +1058,9 @@ def dashboard_interface():
     show_enhanced_analysis_status()
     show_analysis_results()
 
+# Also add this debug version of the button handler
 def show_enhanced_analysis_status():
-    """FIXED: Streamlit Cloud compatible - No auto-reruns, proper state management"""
+    """DEBUG VERSION with detailed button feedback"""
     
     if st.session_state.analysis_status == "processing":
         st.markdown('<div class="glass-container">', unsafe_allow_html=True)
@@ -1084,24 +1085,38 @@ def show_enhanced_analysis_status():
         
         show_loading_animation(phase, estimate, show_time=True)
         
-        # Manual controls only - NO AUTOMATIC CHECKS
+        # DEBUG: Show current state
+        st.write("**DEBUG INFO:**")
+        st.write(f"- Analysis Status: `{st.session_state.analysis_status}`")
+        st.write(f"- Selected Video: `{st.session_state.selected_video['video_id'] if st.session_state.selected_video else 'None'}`")
+        st.write(f"- Last Processed Blob: `{st.session_state.last_processed_blob}`")
+        st.write(f"- Elapsed Time: `{elapsed_time:.1f} seconds`")
+        
+        # Manual controls with debug feedback
         col1, col2, col3 = st.columns(3)
         
         with col1:
             if st.button("🔍 Check Results Now", key="manual_check", use_container_width=True):
-                if check_for_results():
+                st.write("🔄 **Button clicked! Checking results...**")
+                with st.spinner("Checking for results..."):
+                    result = check_for_results()
+                if result:
+                    st.write("✅ **Results found! Rerunning app...**")
                     st.rerun()
+                else:
+                    st.write("❌ **No results yet. Try again in 1-2 minutes.**")
         
         with col2:
             if st.button("🔄 Refresh Status", key="refresh_status", use_container_width=True):
+                st.write("🔄 **Refreshing page...**")
                 st.rerun()
         
         with col3:
             if st.button("❌ Cancel Analysis", key="cancel_analysis", use_container_width=True):
+                st.write("❌ **Cancelling analysis...**")
                 reset_analysis_state()
                 st.rerun()
         
-        # REMOVED: All automatic checking and st.rerun() calls
         # Progress indicator
         progress_value = min(0.9, elapsed_time / 300)
         st.progress(progress_value, text=f"Analysis Progress: {int(progress_value * 100)}%")
@@ -1238,61 +1253,95 @@ def trigger_sentiment_analysis(video_id):
         return False
         
 def check_for_results():
-    """FIXED: More robust error handling and timeout protection"""
+    """DEBUG VERSION: Check results with detailed logging"""
+    
+    # Add debug info
+    st.write("🔍 **DEBUG: Starting check_for_results()**")
     
     if not st.session_state.selected_video:
-        st.error("No video selected")
+        st.error("❌ DEBUG: No video selected")
         return False
     
     video_id = st.session_state.selected_video['video_id']
-    bucket_name = st.secrets.get("RESULTS_BUCKET", os.getenv("RESULTS_BUCKET"))
+    st.write(f"📹 **DEBUG: Checking for video_id:** `{video_id}`")
     
+    # Check configuration
+    bucket_name = st.secrets.get("RESULTS_BUCKET", os.getenv("RESULTS_BUCKET"))
     if not bucket_name:
-        st.error("❌ RESULTS_BUCKET configuration missing")
+        st.error("❌ DEBUG: RESULTS_BUCKET configuration missing")
+        st.write("**Available secrets:**", list(st.secrets.keys()) if hasattr(st, 'secrets') else "No secrets found")
         st.session_state.analysis_status = "error"
         return False
     
+    st.write(f"🪣 **DEBUG: Using bucket:** `{bucket_name}`")
+    
     try:
-        # Initialize Google Cloud client with timeout
+        st.write("🔄 **DEBUG: Initializing Google Cloud Storage client...**")
+        
+        # Initialize Google Cloud client
         client = storage.Client()
         bucket = client.bucket(bucket_name)
         
-        # List blobs with shorter timeout and error handling
+        st.write("✅ **DEBUG: Client initialized successfully**")
+        
+        # List blobs with debug info
+        st.write(f"🔍 **DEBUG: Looking for files with prefix:** `{video_id}`")
+        
         try:
             blobs = list(bucket.list_blobs(prefix=video_id, timeout=15))
+            st.write(f"📁 **DEBUG: Found {len(blobs)} files**")
+            
+            # Show all found files
+            if blobs:
+                for i, blob in enumerate(blobs):
+                    st.write(f"   - File {i+1}: `{blob.name}` (size: {blob.size} bytes, created: {blob.time_created})")
+            else:
+                st.write("   - No files found yet")
+                
         except Exception as list_error:
-            st.warning(f"⚠️ Could not list files in bucket: {str(list_error)}")
+            st.error(f"❌ **DEBUG: Error listing files:** {str(list_error)}")
             return False
         
         if not blobs:
-            st.info("⏳ No results found yet. Analysis is still running...")
+            st.info("⏳ **DEBUG: No results found yet. Analysis is still running...**")
             return False
         
         # Get the most recent blob
         latest_blob = max(blobs, key=lambda b: b.time_created)
         blob_name = latest_blob.name
+        st.write(f"📄 **DEBUG: Latest file:** `{blob_name}`")
         
         # Check if this is a new result
         if st.session_state.last_processed_blob == blob_name:
-            st.info("📄 Same result file found. Waiting for updates...")
+            st.info(f"📄 **DEBUG: Same result file found (`{blob_name}`). Waiting for updates...**")
             return False
+        
+        st.write(f"📥 **DEBUG: Downloading file:** `{blob_name}`")
         
         # Download with timeout and size check
         try:
             # Check blob size first
             if latest_blob.size is None or latest_blob.size == 0:
-                st.info("⏳ Result file is empty or still being written...")
+                st.info(f"⏳ **DEBUG: Result file is empty (size: {latest_blob.size}). Still being written...**")
                 return False
+            
+            st.write(f"📊 **DEBUG: File size:** {latest_blob.size} bytes")
             
             # Download with timeout
             content = latest_blob.download_as_text(timeout=15)
             
+            st.write(f"📝 **DEBUG: Downloaded {len(content)} characters**")
+            
+            # Show first 200 characters
+            st.write(f"📖 **DEBUG: Content preview:** `{content[:200]}...`")
+            
             # Validate content
             if not content or len(content.strip()) < 50:
-                st.info("⏳ Result file found but content appears incomplete...")
+                st.info(f"⏳ **DEBUG: Content too short ({len(content)} chars). File appears incomplete...**")
                 return False
             
             # Success!
+            st.success(f"✅ **DEBUG: Successfully processed file:** `{blob_name}`")
             st.session_state.raw_summary = content
             st.session_state.analysis_status = "complete"
             st.session_state.last_processed_blob = blob_name
@@ -1300,12 +1349,16 @@ def check_for_results():
             return True
             
         except Exception as download_error:
-            st.warning(f"⚠️ Could not download result file: {str(download_error)}")
+            st.error(f"❌ **DEBUG: Download error:** {str(download_error)}")
             return False
     
     except Exception as e:
-        st.error(f"❌ Error checking results: {str(e)}")
+        st.error(f"❌ **DEBUG: General error:** {str(e)}")
+        st.write(f"**Error type:** {type(e).__name__}")
+        import traceback
+        st.code(traceback.format_exc())
         return False
+
 
 def show_analysis_results():
     """Enhanced results display with better error handling"""
