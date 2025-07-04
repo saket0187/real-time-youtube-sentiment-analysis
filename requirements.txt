@@ -10,3 +10,4 @@ fpdf
 plotly
 streamlit-autorefresh
 google-auth
+google-auth-oauthlib
