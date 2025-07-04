@@ -26,13 +26,29 @@ if not gemini_key:
     st.stop()
 genai.configure(api_key=gemini_key)
 creds_json = st.secrets.get("GOOGLE_APPLICATION_CREDENTIALS", os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-if isinstance(creds_json, str):
-    creds_dict = json.loads(creds_json)
-else:
-    creds_dict = creds_json
 
-creds = Credentials.from_service_account_info(creds_dict)
-client = storage.Client(credentials=creds, project=creds.project_id)
+# Print the first 100 chars to help debug if the format is wrong (remove in production)
+print("Loaded GOOGLE_APPLICATION_CREDENTIALS:", repr(creds_json)[:100])
+
+if not creds_json:
+    st.error("❌ GOOGLE_APPLICATION_CREDENTIALS missing in Streamlit secrets or env.")
+    st.stop()
+
+try:
+    if isinstance(creds_json, str):
+        creds_dict = json.loads(creds_json)
+    else:
+        creds_dict = creds_json
+except Exception as e:
+    st.error(f"❌ Failed to parse GOOGLE_APPLICATION_CREDENTIALS as JSON: {e}")
+    st.stop()
+
+try:
+    creds = Credentials.from_service_account_info(creds_dict)
+    client = storage.Client(credentials=creds, project=creds.project_id)
+except Exception as e:
+    st.error(f"❌ Failed to create Google Cloud Storage client: {e}")
+    st.stop()
 
 # ─── Streamlit page setup ─────────────────────────────────────────────────────
 st.set_page_config(page_title="YouTube Sentiment Dashboard", page_icon="🎬", layout="wide")
