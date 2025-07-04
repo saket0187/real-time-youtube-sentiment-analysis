@@ -947,8 +947,9 @@ def dashboard_interface():
     show_enhanced_analysis_status()
     show_analysis_results()
 
+@st.fragment
 def show_enhanced_analysis_status():
-    """Enhanced analysis status with FIXED progressive checking"""
+    """Enhanced analysis status with FIXED progressive checking - now as fragment"""
     
     if st.session_state.analysis_status == "processing":
         st.markdown('<div class="glass-container">', unsafe_allow_html=True)
@@ -1047,18 +1048,14 @@ def show_enhanced_analysis_status():
             with col2:
                 if st.button("🔄 Reset Analysis", key="reset_analysis", use_container_width=True):
                     reset_analysis_state()
-                    st.rerun()
+                    st.rerun()  # Only this button still needs full rerun for complete reset
         
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Auto-refresh - but only if still processing and not just auto-checked
+        # Auto-refresh fragment - only if still processing and not just auto-checked
         if not auto_check_triggered and st.session_state.analysis_status == "processing":
-            # Use st.empty() placeholder for smoother refresh
-            if 'refresh_placeholder' not in st.session_state:
-                st.session_state.refresh_placeholder = st.empty()
-            
-            # Refresh every 10 seconds instead of 5 to reduce server load
-            time.sleep(1)
+            # Wait 10 seconds then rerun this fragment only
+            time.sleep(10)
             st.rerun()
     
     elif st.session_state.analysis_status == "complete":
@@ -1108,7 +1105,8 @@ def trigger_sentiment_analysis(video_id):
             placeholder.markdown('<div class="status-success">✅ Analysis started successfully!</div>', unsafe_allow_html=True)
             time.sleep(2)
             placeholder.empty()
-            st.rerun()
+            # Fragment will handle the status updates automatically
+            
         else:
             st.session_state.analysis_status = "error"
             placeholder.markdown(f'<div class="status-error">❌ Function call failed with status: {response.status_code}<br>Response: {response.text}</div>', unsafe_allow_html=True)
@@ -1120,10 +1118,11 @@ def trigger_sentiment_analysis(video_id):
         placeholder.markdown('<div class="status-processing">⏳ Function call timed out, but analysis may still be running. Will check for results automatically.</div>', unsafe_allow_html=True)
         time.sleep(2)
         placeholder.empty()
-        st.rerun()
+        
     except Exception as e:
         st.session_state.analysis_status = "error"
         placeholder.markdown(f'<div class="status-error">❌ Function call failed: {str(e)}</div>', unsafe_allow_html=True)
+
 
 def check_for_results():
     """FIXED results checking with better error handling and return value"""
@@ -1180,7 +1179,8 @@ def check_for_results():
         time.sleep(3)
         error_placeholder.empty()
         return False
-
+        
+@st.fragment
 def show_analysis_results():
     """Enhanced results display with better error handling"""
     if not st.session_state.raw_summary:
