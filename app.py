@@ -25,24 +25,29 @@ if not gemini_key:
     st.error("🔑 Gemini API key missing. Set GEMINI_API_KEY in .env or Streamlit secrets.")
     st.stop()
 genai.configure(api_key=gemini_key)
+import json
+from google.cloud import storage
+from google.oauth2.service_account import Credentials
+
+# Always get the full JSON string from Streamlit secrets (or fallback to env, which should also be a JSON string)
 creds_json = st.secrets.get("GOOGLE_APPLICATION_CREDENTIALS", os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
 
-# Print the first 100 chars to help debug if the format is wrong (remove in production)
-print("Loaded GOOGLE_APPLICATION_CREDENTIALS:", repr(creds_json)[:100])
+# Debug: show a portion of your secret (optional, remove in production)
+print("Loaded GOOGLE_APPLICATION_CREDENTIALS (first 100 chars):", repr(creds_json)[:100])
 
 if not creds_json:
-    st.error("❌ GOOGLE_APPLICATION_CREDENTIALS missing in Streamlit secrets or env.")
+    st.error("❌ GOOGLE_APPLICATION_CREDENTIALS missing in Streamlit secrets or environment variable.")
     st.stop()
 
+# Parse the JSON string into a dictionary
 try:
-    if isinstance(creds_json, str):
-        creds_dict = json.loads(creds_json)
-    else:
-        creds_dict = creds_json
+    # If somehow the value is already a dict (rare), use as is
+    creds_dict = creds_json if isinstance(creds_json, dict) else json.loads(creds_json)
 except Exception as e:
     st.error(f"❌ Failed to parse GOOGLE_APPLICATION_CREDENTIALS as JSON: {e}")
     st.stop()
 
+# Create credentials and client explicitly by passing the credentials object
 try:
     creds = Credentials.from_service_account_info(creds_dict)
     client = storage.Client(credentials=creds, project=creds.project_id)
