@@ -49,8 +49,10 @@ except Exception as e:
 
 # Create credentials and client explicitly by passing the credentials object
 try:
-    creds = Credentials.from_service_account_info(creds_dict)
-    client = storage.Client(credentials=creds, project=creds.project_id)
+    google_creds = Credentials.from_service_account_info(creds_dict)
+    google_project = creds_dict["project_id"]  # or st.secrets["GOOGLE_CLOUD_PROJECT"]
+    st.session_state['google_creds'] = google_creds
+    st.session_state['google_project'] = google_project
 except Exception as e:
     st.error(f"❌ Failed to create Google Cloud Storage client: {e}")
     st.stop()
@@ -1165,7 +1167,7 @@ def check_for_results():
         return False
     
     try:
-        client = storage.Client()
+        client = storage.Client(credentials=st.session_state['google_creds'], project=st.session_state['google_project'])
         bucket = client.bucket(bucket_name)
         
         # List all blobs with video_id prefix
