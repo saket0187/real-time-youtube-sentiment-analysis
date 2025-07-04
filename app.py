@@ -720,34 +720,154 @@ st.markdown("""
     backdrop-filter: blur(10px);
   }
 
-.video-card:hover .thumbnail-wrapper {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 25px rgba(0,0,0,0.15);
-}
-
-.video-card:hover .thumbnail-wrapper img {
-    transform: scale(1.05);
-}
-
-.video-card:hover .play-overlay {
-    opacity: 1;
-}
-
-.meta-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    background: rgba(102, 126, 234, 0.1);
-    border-radius: 20px;
-    font-size: 0.9em;
-    color: #444;
+/* Video Card Container */
+.video-card {
+    background: rgba(255, 255, 255, 0.98);
+    border-radius: 16px;
+    padding: 24px;
+    margin: 20px 0;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     transition: all 0.3s ease;
 }
 
-.meta-item:hover {
-    background: rgba(102, 126, 234, 0.2);
-    transform: translateY(-1px);
+.video-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
+}
+
+/* Thumbnail Styles */
+.thumbnail-container {
+    position: relative;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.thumbnail-wrapper {
+    position: relative;
+    padding-top: 56.25%; /* 16:9 Aspect Ratio */
+}
+
+.thumbnail-wrapper img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.thumbnail-wrapper:hover img {
+    transform: scale(1.05);
+}
+
+.play-button {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    width: 48px;
+    height: 48px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.thumbnail-wrapper:hover .play-button {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.duration-badge {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Content Styles */
+.video-title {
+    font-size: 1.4em;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 12px;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.verified-badge {
+    display: inline-flex;
+    align-items: center;
+}
+
+.video-meta {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.meta-item.primary {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    color: #4a5568;
+}
+
+.meta-item.secondary {
+    background: linear-gradient(135deg, rgba(66, 153, 225, 0.1), rgba(99, 179, 237, 0.1));
+    color: #4a5568;
+}
+
+/* Description Styles */
+.description-container {
+    background: linear-gradient(135deg, rgba(247, 250, 252, 0.8), rgba(237, 242, 247, 0.8));
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 16px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.description-content {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.description-icon {
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+
+.description-text {
+    color: #2d3748;
+    font-size: 0.95em;
+    line-height: 1.6;
+    margin: 0;
+    font-weight: 400;
 }
 
 @keyframes fadeInUp {
@@ -935,68 +1055,76 @@ def display_search_results():
         ''', unsafe_allow_html=True)
         
         for i, video in enumerate(st.session_state.search_results):
+            st.markdown(f'''
+            <div class="video-card" style="animation: fadeInUp {(i+1)*0.2}s ease-out;">
+            ''', unsafe_allow_html=True)
             
-            
-            cols = st.columns([1, 4, 1]) 
+            cols = st.columns([1, 4, 1])
             
             with cols[0]:
-                # Thumbnail section with enhanced styling
+                # Enhanced thumbnail with modern hover effects
                 st.markdown(f'''
-                <div class="thumbnail-wrapper" style="
-                    position: relative;
-                    overflow: hidden;
-                    border-radius: 12px;
-                    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-                    transition: all 0.3s ease;
-                ">
-                    <img src="{video['thumbnail']}" style="
-                        width: 100%;
-                        height: auto;
-                        display: block;
-                        transition: transform 0.3s ease;
-                    ">
-                    <div class="play-overlay"></div>
+                <div class="thumbnail-container">
+                    <div class="thumbnail-wrapper">
+                        <img src="{video['thumbnail']}" alt="{video['title']}">
+                        <div class="play-button">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8 5V19L19 12L8 5Z" fill="white"/>
+                            </svg>
+                        </div>
+                        <div class="duration-badge">HD</div>
+                    </div>
                 </div>
                 ''', unsafe_allow_html=True)
             
             with cols[1]:
-                # Title and meta information
+                # Enhanced content section with better typography and colors
                 st.markdown(f'''
                 <div class="video-content">
-                    <h3 class="video-title">{video["title"]}</h3>
+                    <h3 class="video-title">
+                        {video["title"]}
+                        <span class="verified-badge">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="#1DA1F2">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                            </svg>
+                        </span>
+                    </h3>
+                    
                     <div class="video-meta">
-                        <span class="meta-item">
+                        <div class="meta-item primary">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/>
                             </svg>
                             {video["channel"]}
-                        </span>
-                        <span class="meta-item">
+                        </div>
+                        <div class="meta-item secondary">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
                                 <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
                             </svg>
                             {video["published"]}
-                        </span>
+                        </div>
                     </div>
-                </div>
                 ''', unsafe_allow_html=True)
                 
-                # Description section
                 description = video.get("description", "")
                 if description:
                     st.markdown(f'''
-                    <div class="video-description">
-                        <div style="
-                            position: relative;
-                            z-index: 2;
-                            color: #444;
-                            line-height: 1.6;
-                        ">
-                            {description[:250] + ('...' if len(description) > 250 else '')}
+                    <div class="description-container">
+                        <div class="description-content">
+                            <div class="description-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="#0066FF">
+                                    <path d="M14 17H4v2h10v-2zm6-8H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z"/>
+                                </svg>
+                            </div>
+                            <p class="description-text">
+                                {description[:250] + ('...' if len(description) > 250 else '')}
+                            </p>
                         </div>
                     </div>
                     ''', unsafe_allow_html=True)
+                
+                st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown('</div>', unsafe_allow_html=True)
             
