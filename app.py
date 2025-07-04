@@ -15,6 +15,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import json
+from google.oauth2.service_account import Credentials
+
 
 # ─── Load .env & configure Gemini ─────────────────────────────────────────────
 load_dotenv()
@@ -23,6 +25,14 @@ if not gemini_key:
     st.error("🔑 Gemini API key missing. Set GEMINI_API_KEY in .env or Streamlit secrets.")
     st.stop()
 genai.configure(api_key=gemini_key)
+creds_json = st.secrets.get("GOOGLE_APPLICATION_CREDENTIALS", os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+if isinstance(creds_json, str):
+    creds_dict = json.loads(creds_json)
+else:
+    creds_dict = creds_json
+
+creds = Credentials.from_service_account_info(creds_dict)
+client = storage.Client(credentials=creds, project=creds.project_id)
 
 # ─── Streamlit page setup ─────────────────────────────────────────────────────
 st.set_page_config(page_title="YouTube Sentiment Dashboard", page_icon="🎬", layout="wide")
