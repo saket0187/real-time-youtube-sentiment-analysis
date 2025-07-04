@@ -719,6 +719,47 @@ st.markdown("""
     margin-top: 40px;
     backdrop-filter: blur(10px);
   }
+
+.video-card:hover .thumbnail-wrapper {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 25px rgba(0,0,0,0.15);
+}
+
+.video-card:hover .thumbnail-wrapper img {
+    transform: scale(1.05);
+}
+
+.video-card:hover .play-overlay {
+    opacity: 1;
+}
+
+.meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 20px;
+    font-size: 0.9em;
+    color: #444;
+    transition: all 0.3s ease;
+}
+
+.meta-item:hover {
+    background: rgba(102, 126, 234, 0.2);
+    transform: translateY(-1px);
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
   
   /* Responsive adjustments */
   @media (max-width: 768px) {
@@ -894,32 +935,70 @@ def display_search_results():
         ''', unsafe_allow_html=True)
         
         for i, video in enumerate(st.session_state.search_results):
-            st.markdown('<div class="video-card">', unsafe_allow_html=True)
             
-            cols = st.columns([1, 4, 1])
+            
+            cols = st.columns([1, 4, 1]) 
             
             with cols[0]:
-                st.image(video["thumbnail"], width=150)
+                # Thumbnail section with enhanced styling
+                st.markdown(f'''
+                <div class="thumbnail-wrapper" style="
+                    position: relative;
+                    overflow: hidden;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+                    transition: all 0.3s ease;
+                ">
+                    <img src="{video['thumbnail']}" style="
+                        width: 100%;
+                        height: auto;
+                        display: block;
+                        transition: transform 0.3s ease;
+                    ">
+                    <div class="play-overlay"></div>
+                </div>
+                ''', unsafe_allow_html=True)
             
             with cols[1]:
-                st.markdown(f'<div class="video-title">{video["title"]}</div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="video-meta">📺 {video["channel"]} • 📅 {video["published"]}</div>', unsafe_allow_html=True)
+                # Title and meta information
+                st.markdown(f'''
+                <div class="video-content">
+                    <h3 class="video-title">{video["title"]}</h3>
+                    <div class="video-meta">
+                        <span class="meta-item">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/>
+                            </svg>
+                            {video["channel"]}
+                        </span>
+                        <span class="meta-item">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
+                                <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                            </svg>
+                            {video["published"]}
+                        </span>
+                    </div>
+                </div>
+                ''', unsafe_allow_html=True)
+                
+                # Description section
                 description = video.get("description", "")
                 if description:
                     st.markdown(f'''
-                    <div style="
-                        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(255,255,255,0.9));
-                        border-left: 4px solid #667eea;
-                        padding: 15px;
-                        border-radius: 10px;
-                        margin: 10px 0;
-                        color: #333;
-                        line-height: 1.5;
-                    ">
-                        📝 <strong>Description:</strong><br>
-                        {description[:250] + ('...' if len(description) > 250 else '')}
+                    <div class="video-description">
+                        <div style="
+                            position: relative;
+                            z-index: 2;
+                            color: #444;
+                            line-height: 1.6;
+                        ">
+                            {description[:250] + ('...' if len(description) > 250 else '')}
+                        </div>
                     </div>
                     ''', unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
             
             with cols[2]:
                 if st.button("🚀 Analyze", key=f"select_{i}", use_container_width=True):
