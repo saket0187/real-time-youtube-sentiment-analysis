@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from fpdf import FPDF
 from io import BytesIO
+import base64
 import re
 import plotly.express as px
 import plotly.graph_objects as go
@@ -52,7 +53,7 @@ except Exception as e:
 # ─── Streamlit page setup ─────────────────────────────────────────────────────
 st.set_page_config(
     page_title="YouTube Sentiment Dashboard", 
-    page_icon="🎬", 
+    page_icon="https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/32px-YouTube_full-color_icon_%282017%29.svg.png",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -1830,15 +1831,34 @@ def generate_pdf_report(raw_summary):
     except Exception as e:
         placeholder.markdown(f'<div class="status-error">❌ PDF generation failed: {str(e)}</div>', unsafe_allow_html=True)
 
+def get_image_as_base64(url):
+    """Fetches an image from a URL and returns it as a Base64 encoded string."""
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            # Read image content into a BytesIO object
+            img_content = BytesIO(response.content)
+            # Encode to base64
+            base64_encoded = base64.b64encode(img_content.read()).decode()
+            return f"data:image/png;base64,{base64_encoded}"
+        return None
+    except Exception as e:
+        print(f"Error fetching or encoding image: {e}")
+        return None
+    
 def show_footer():
     """Enhanced footer with modern theming"""
     st.markdown("""
-    <div class="footer-container">
-        <h3>🎬 YouTube Sentiment Dashboard</h3>
+    <div class="footer-container" style="text-align: center;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/32px-YouTube_full-color_icon_%282017%29.svg.png" alt="YouTube Logo" style="width:32px; height:32px; margin-bottom:0.7rem;">
+        <h3 style="margin-top:0.4rem;">YouTube Sentiment Dashboard</h3>
         <p>Powered by AI • Built with Streamlit • Enhanced Analytics</p>
         <p>Analyze • Visualize • Understand</p>
     </div>
     """, unsafe_allow_html=True)
+
+
+
 
 # ─── Main App Logic ───────────────────────────────────────────────────────────
 def main():
