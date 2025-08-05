@@ -1,20 +1,17 @@
-# 🎮 Real-Time YouTube Sentiment Analysis Dashboard
+# 🎬 Real-Time YouTube Sentiment Analysis Dashboard
 
-A cloud-based, full-stack system that allows users to search YouTube videos, extract multilingual comments (English, Hindi, Hinglish), perform real-time sentiment analysis using Google Cloud Platform services, and generate AI-powered insights using Gemini AI. The UI is built in Streamlit for interactivity and ease of use.
-
----
+A cloud-powered, full-stack platform that enables users to search YouTube videos, extract and analyze multilingual comments (English, Hindi, Hinglish), perform real-time sentiment analysis using Google Cloud Platform, and generate detailed AI-powered insights via Gemini AI. The user interface is crafted in Streamlit for maximum responsiveness and accessibility.
 
 ## 📌 Features
 
-* 🔍 Search YouTube videos using keywords
-* 📅 Extract comments from selected video
-* 🌐 Handle multilingual comments (EN, HI, HINGLISH)
-* 🔁 Serverless sentiment processing pipeline (Cloud Functions + Dataflow)
-* 📊 Gemini-powered insights generation
-* 🌈 Beautiful, responsive Streamlit UI with YouTube-themed design
-* ☁️ Fully integrated with GCP (Cloud Storage, Pub/Sub, Functions, Dataflow)
-
----
+* 🔍 Seamless YouTube video search by keyword
+* 📅 Fast extraction of video comments (supports EN, HI, Hinglish)
+* 🌐 Multilingual comment processing
+* ☁️ Serverless, scalable sentiment analysis pipeline (Google Cloud Functions + Dataflow)
+* 🤖 Automated insights and recommendations powered by Gemini AI
+* 🌈 YouTube-inspired, modern, and responsive Streamlit UI
+* 🔄 Download analysis results in TXT, JSON, PDF
+* 🔒 Integrated GCP IAM roles and secure secrets handling
 
 ## ⚙️ Architecture Overview
 
@@ -30,8 +27,6 @@ graph LR
     Gemini --> UI
 ```
 
----
-
 ## 🧰 Technologies Used
 
 | Layer         | Tools/Services                                  |
@@ -40,97 +35,70 @@ graph LR
 | Backend       | Python, Google Cloud Functions                  |
 | Data Pipeline | Google Cloud Dataflow (Apache Beam)             |
 | Storage       | Google Cloud Storage                            |
-| Messaging     | Google Cloud Pub/Sub (Optional variant)         |
-| AI Analysis   | Google Gemini Pro via `google.generativeai` SDK |
+| Messaging     | Google Cloud Pub/Sub (optional)                 |
+| AI Analysis   | Gemini Pro via `google.generativeai` SDK        |
 | APIs          | YouTube Data API v3                             |
 
----
+## 💻 Streamlit UI Overview
 
-## 💽 Streamlit UI Overview
+### `main.py` Key Functions:
 
-### `main.py`
+- `init_state()`: Sets up session state.
+- `show_header()`: YouTube-inspired header.
+- `show_search()`: Search videos using YouTube Data API.
+- `show_results()`: List search results, enable video selection.
+- `show_selected()`: Trigger Cloud Function for comment extraction and poll results.
+- `show_summary_and_insights()`: Display sentiment summary, use Gemini AI for advanced analysis.
+- `show_downloads()`: TXT, JSON, PDF export support.
+- `main()`: Orchestrates app logic and interface.
 
-#### Functions:
+**Notes:**
+- All configuration safely handled with `.env` or Streamlit `st.secrets`.
+- Custom CSS for perfect UI and button alignment.
 
-* `init_state()`: Initializes Streamlit session state for tabs, selected video, and summaries.
-* `show_header()`: Renders the YouTube-themed header.
-* `show_search()`: Lets users search YouTube via keyword using the YouTube Data API.
-* `show_results()`: Displays video thumbnails, titles, and allows video selection.
-* `show_selected()`: Triggers the Cloud Function with selected video URL and polls Cloud Storage for comment summaries.
-* `show_summary_and_insights()`: Displays raw text summary and uses Gemini to generate AI-based sentiment insights.
-* `main()`: Orchestrates the app across 2 tabs (search & analyze).
+## 🧠 Google Gemini AI Integration
 
-#### Notes:
+- **SDK:** `google.generativeai`
+- **Model:** `gemini-pro`
+- **Input:** Sentiment summary text file (from Dataflow job)
+- **Output:** Markdown-formatted sectioned insights with:
+  - Overall sentiment trends
+  - Positive/negative/neutral breakdowns
+  - Frequent viewer feedback
+  - Actionable content improvement suggestions
 
-* Uses `.env` or `st.secrets` for API keys.
-* Applies custom CSS for theming.
+## ☁️ Cloud Functions & Dataflow Pipeline
 
----
+### Cloud Function: `extract_comments`
 
-## 🧐 Google Gemini AI Integration
+**Purpose:**  
+Triggered by Streamlit. Receives a YouTube video URL and:
+1. Fetches top-level comments with YouTube Data API v3.
+2. Cleans and pre-processes (dedupes, filters, optional translation).
+3. Writes CSV to GCS input bucket.
 
-### `google.generativeai`
-
-* Initializes with `genai.configure(api_key=...)`
-* Model: `gemini-pro`
-* Input: Raw comment summary
-* Output: Structured sentiment insight with sections like:
-
-  * Overall sentiment
-  * Positive themes
-  * Negative themes
-  * Recurring feedback
-  * Recommendations
-
----
-
-## ☁️ Cloud Function: `extract_comments`
-
-### Purpose:
-
-Triggered by the Streamlit app. Takes a YouTube video URL and:
-
-1. Extracts top-level comments using YouTube Data API.
-2. Cleans and preprocesses comments.
-3. Writes them as a CSV file to a Cloud Storage bucket.
-
-### Input:
-
+**Request Example:**
 ```json
 { "video_url": "https://www.youtube.com/watch?v=abc123" }
 ```
+**CSV Output:**  
+`VIDEO_ID_timestamp.csv` → `youtube-comments-input`
 
-### Output:
+### Dataflow Job (sentiment ETL)
 
-Uploads: `VIDEO_ID_timestamp.csv` to `INPUT_BUCKET`
+1. Automatically triggered by new CSV in the input bucket.
+2. Reads comments, executes sentiment analysis (TextBlob, VADER, or ML/DL model).
+3. Summarizes and formats results.
+4. Exports as `.txt` to the output bucket (`youtube-sentiment-results`).
 
----
+## 📦 Cloud Storage Buckets
 
-### Technologies:
+| Bucket Name                 | Purpose                        |
+|-----------------------------|--------------------------------|
+| `youtube-comments-input`    | Raw comment CSVs from Function |
+| `youtube-sentiment-results` | Output sentiment summaries     |
 
-* Python
-* GCP
-
-### Steps:
-
-1. **Read CSV** from GCS uploaded by the Cloud Function.
-2. **Translate** non-English comments (optional).
-3. **Run Sentiment Analysis** (e.g., TextBlob, VADER, ML/DL model).
-4. **Summarize** major sentiments, trends.
-5. **Write** cleaned summary `.txt` file to output GCS bucket.
-
----
-
-## 📁 Cloud Storage Buckets
-
-| Bucket Name                 | Purpose                 |
-| --------------------------- | ----------------------- |
-| `youtube-comments-input`    | Holds raw CSVs from CF  |
-| `youtube-sentiment-results` | Stores `.txt` summaries |
-
----
-
-## 🔐 Secrets & Config (.env / Streamlit Secrets)
+## 🔑 Secrets & Config (`.env` or Streamlit `st.secrets`)
 
 ```ini
 GEMINI_API_KEY=your-gemini-api-key
@@ -140,29 +108,25 @@ RESULTS_BUCKET=youtube-sentiment-results
 GOOGLE_APPLICATION_CREDENTIALS=your-gcp-creds.json
 ```
 
----
-
 ## 🚀 Deployment Guide
 
 ### ✅ Prerequisites
 
-* GCP Project with billing enabled
-* YouTube Data API enabled
-* Google Cloud SDK installed
-* IAM Roles: Cloud Functions Invoker, Storage Admin, Dataflow Developer
-
----
+- GCP project (w/ billing)
+- Enabled: YouTube Data API, Cloud Functions, Dataflow, Storage
+- Google Cloud SDK setup
+- Adequate IAM Roles
 
 ### 🏗️ Step-by-Step Setup
 
 #### 1. Clone the Repo
 
 ```bash
-git clone https://github.com/yourusername/yt-sentiment-dashboard.git
+git clone https://github.com/saket0187/real-time-youtube-sentiment-analysis.git
 cd yt-sentiment-dashboard
 ```
 
-#### 2. Set Up Environment
+#### 2. Set Up Python Environment
 
 ```bash
 python -m venv venv
@@ -198,34 +162,20 @@ python sentiment_etl.py \
 streamlit run main.py
 ```
 
----
+## 🚙 Future Improvements
 
-## 📊 Sample Output
+- User authentication (Firebase)
+- Natural language Q&A with Dialogflow
+- BigQuery integration for multi-video analytics
+- More languages & advanced NLP
 
-* Bar graph of sentiment counts
-* Gemini summary report
-* YouTube video preview with linked comments
+## 📄 License
 
----
-
-## 🚀 Future Improvements
-
-* Add user authentication with Firebase
-* Use Dialogflow for Q\&A over comment insights
-* Integrate BigQuery for long-term trend analysis
-
----
-
-## 💼 License
-
-MIT License. See `LICENSE` file.
-
----
+MIT License. See `LICENSE`.
 
 ## 🙏 Acknowledgments
 
-* Google Cloud Platform
-* YouTube Data API
-* Gemini by Google
-* Apache Beam Team
-* Streamlit Community
+- Google Cloud Platform
+- YouTube Data API
+- Gemini by Google
+- Streamlit Community
