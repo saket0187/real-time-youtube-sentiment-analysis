@@ -17,7 +17,6 @@ from datetime import datetime
 import json
 from google.oauth2.service_account import Credentials
 
-
 # ─── Load .env & configure Gemini ─────────────────────────────────────────────
 load_dotenv()
 gemini_key = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
@@ -25,15 +24,9 @@ if not gemini_key:
     st.error("🔑 Gemini API key missing. Set GEMINI_API_KEY in .env or Streamlit secrets.")
     st.stop()
 genai.configure(api_key=gemini_key)
-import json
-from google.cloud import storage
-from google.oauth2.service_account import Credentials
 
-# Always get the full JSON string from Streamlit secrets (or fallback to env, which should also be a JSON string)
+# Google Cloud Storage configuration
 creds_json = st.secrets.get("GOOGLE_APPLICATION_CREDENTIALS", os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-
-# Debug: show a portion of your secret (optional, remove in production)
-print("Loaded GOOGLE_APPLICATION_CREDENTIALS (first 100 chars):", repr(creds_json)[:100])
 
 if not creds_json:
     st.error("❌ GOOGLE_APPLICATION_CREDENTIALS missing in Streamlit secrets or environment variable.")
@@ -41,7 +34,6 @@ if not creds_json:
 
 # Parse the JSON string into a dictionary
 try:
-    # If somehow the value is already a dict (rare), use as is
     creds_dict = creds_json if isinstance(creds_json, dict) else json.loads(creds_json)
 except Exception as e:
     st.error(f"❌ Failed to parse GOOGLE_APPLICATION_CREDENTIALS as JSON: {e}")
@@ -50,7 +42,7 @@ except Exception as e:
 # Create credentials and client explicitly by passing the credentials object
 try:
     google_creds = Credentials.from_service_account_info(creds_dict)
-    google_project = creds_dict["project_id"]  # or st.secrets["GOOGLE_CLOUD_PROJECT"]
+    google_project = creds_dict["project_id"]
     st.session_state['google_creds'] = google_creds
     st.session_state['google_project'] = google_project
 except Exception as e:
@@ -58,835 +50,886 @@ except Exception as e:
     st.stop()
 
 # ─── Streamlit page setup ─────────────────────────────────────────────────────
-st.set_page_config(page_title="YouTube Sentiment Dashboard", page_icon="🎬", layout="wide")
+st.set_page_config(
+    page_title="YouTube Sentiment Dashboard", 
+    page_icon="🎬", 
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# ─── Enhanced Custom CSS ─────────────────────────────────────────────────────
+# ─── ENHANCED CSS with MASSIVE Floating Elements and Perfect Alignment ─────────────────────────────────────────────────────
 st.markdown("""
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-  
-  /* Global Styles */
-  html, body, [class*="st-"] { 
-    font-family: 'Inter', sans-serif !important; 
-  }
-  
-  .main > div {
-    padding-top: 2rem;
-  }
-  
-  /* Remove white bars/containers */
-  .main .block-container {
-    padding-top: 1rem;
-    padding-bottom: 1rem;
-  }
-  
-  /* Hide default streamlit header/footer */
-  header[data-testid="stHeader"] {
-    display: none !important;
-  }
-  
-  .stApp > header {
-    display: none !important;
-  }
-  
-  /* Remove default streamlit margins */
-  .main .block-container {
-    max-width: 100%;
-    padding-left: 2rem;
-    padding-right: 2rem;
-  }
-  
-  /* Background */
-  .stApp {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-    background-attachment: fixed;
-  }
-  
-/* Header Styles */
-.main-header { 
-    background: linear-gradient(135deg, 
-        rgba(15,15,35,0.95) 0%, 
-        rgba(25,25,55,0.98) 25%,
-        rgba(35,15,45,0.95) 50%,
-        rgba(20,20,40,0.92) 100%);
-    backdrop-filter: blur(25px);
-    border-radius: 25px;
-    padding: 40px;
-    margin-bottom: 30px;
-    box-shadow: 
-        0 25px 50px rgba(0,0,0,0.3),
-        0 0 0 1px rgba(100,200,255,0.3),
-        inset 0 1px 0 rgba(255,255,255,0.2),
-        0 0 60px rgba(0,150,255,0.15);
-    border: 2px solid rgba(100,200,255,0.4);
-    display: flex;
-    align-items: center;
-    gap: 30px;
-    animation: slideInDown 0.8s ease-out, headerPulse 3s ease-in-out infinite;
-    position: relative;
-    overflow: hidden;
-}
-
-/* Animated background with AI-themed colors */
-.main-header::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: 
-        radial-gradient(circle at 25% 25%, rgba(0,200,255,0.08) 0%, transparent 50%),
-        radial-gradient(circle at 75% 75%, rgba(150,0,255,0.06) 0%, transparent 50%),
-        radial-gradient(circle at 50% 10%, rgba(255,0,150,0.04) 0%, transparent 60%);
-    animation: aiParticles 15s linear infinite;
-    pointer-events: none;
-    z-index: 1;
-}
-
-/* Floating neural network effect */
-.main-header::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-image: 
-        radial-gradient(circle at 20% 30%, rgba(0,255,200,0.1) 2px, transparent 2px),
-        radial-gradient(circle at 80% 20%, rgba(255,0,200,0.1) 1px, transparent 1px),
-        radial-gradient(circle at 60% 80%, rgba(100,200,255,0.1) 1.5px, transparent 1.5px),
-        radial-gradient(circle at 30% 70%, rgba(200,100,255,0.1) 1px, transparent 1px);
-    background-size: 100px 100px, 80px 80px, 120px 120px, 90px 90px;
-    animation: neuralNetwork 8s ease-in-out infinite;
-    pointer-events: none;
-    z-index: 2;
-}
-
-/* Enhanced title styling */
-.main-header h1 {
-    position: relative;
-    z-index: 3;
-    background: linear-gradient(45deg, 
-        #00d4ff 0%, 
-        #ff0080 25%, 
-        #8000ff 50%, 
-        #00ff80 75%, 
-        #ff4000 100%);
-    background-size: 300% 300%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: gradientShift 4s ease-in-out infinite;
-    font-weight: 700;
-    text-shadow: 0 0 30px rgba(0,200,255,0.3);
-}
-
-/* AI Powered subtitle with enhanced effects */
-.ai-powered-text {
-    position: relative;
-    z-index: 3;
-    font-size: 1.2em;
-    font-weight: 600;
-    background: linear-gradient(90deg, 
-        #00ff88 0%,
-        #0088ff 25%,
-        #8800ff 50%,
-        #ff0088 75%,
-        #ff8800 100%);
-    background-size: 200% 100%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: aiTextFlow 3s linear infinite;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    position: relative;
-}
-
-/* Glowing AI chip icon effect */
-.ai-powered-text::before {
-    content: '🧠';
-    position: absolute;
-    left: -30px;
-    top: 50%;
-    transform: translateY(-50%);
-    animation: brainPulse 2s ease-in-out infinite;
-    filter: drop-shadow(0 0 10px rgba(0,255,150,0.6));
-}
-
-/* Animated underline for AI text */
-.ai-powered-text::after {
-    content: '';
-    position: absolute;
-    bottom: -5px;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background: linear-gradient(90deg, 
-        transparent 0%,
-        #00ff88 20%,
-        #0088ff 40%,
-        #8800ff 60%,
-        #ff0088 80%,
-        transparent 100%);
-    animation: underlineGlow 2s ease-in-out infinite;
-}
-
-/* Keyframe animations */
-@keyframes headerPulse {
-    0%, 100% { 
-        box-shadow: 
-            0 25px 50px rgba(0,0,0,0.3),
-            0 0 0 1px rgba(100,200,255,0.3),
-            inset 0 1px 0 rgba(255,255,255,0.2),
-            0 0 60px rgba(0,150,255,0.15);
-    }
-    50% { 
-        box-shadow: 
-            0 30px 60px rgba(0,0,0,0.4),
-            0 0 0 1px rgba(100,200,255,0.5),
-            inset 0 1px 0 rgba(255,255,255,0.3),
-            0 0 80px rgba(0,150,255,0.25);
-    }
-}
-
-@keyframes aiParticles {
-    0% { transform: rotate(0deg) scale(1); opacity: 0.8; }
-    33% { transform: rotate(120deg) scale(1.1); opacity: 1; }
-    66% { transform: rotate(240deg) scale(0.9); opacity: 0.6; }
-    100% { transform: rotate(360deg) scale(1); opacity: 0.8; }
-}
-
-@keyframes neuralNetwork {
-    0%, 100% { 
-        background-position: 0% 0%, 100% 100%, 50% 50%, 25% 75%; 
-        opacity: 0.3;
-    }
-    50% { 
-        background-position: 100% 100%, 0% 0%, 75% 25%, 50% 50%; 
-        opacity: 0.6;
-    }
-}
-
-@keyframes gradientShift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-}
-
-@keyframes aiTextFlow {
-    0% { background-position: 0% 50%; }
-    100% { background-position: 200% 50%; }
-}
-
-@keyframes brainPulse {
-    0%, 100% { 
-        transform: translateY(-50%) scale(1); 
-        filter: drop-shadow(0 0 10px rgba(0,255,150,0.6));
-    }
-    50% { 
-        transform: translateY(-50%) scale(1.2); 
-        filter: drop-shadow(0 0 20px rgba(0,255,150,0.9));
-    }
-}
-
-@keyframes underlineGlow {
-    0%, 100% { opacity: 0.6; transform: scaleX(1); }
-    50% { opacity: 1; transform: scaleX(1.05); }
-}
-
-@keyframes slideInDown {
-    from {
-        opacity: 0;
-        transform: translate3d(0, -100%, 0);
-    }
-    to {
-        opacity: 1;
-        transform: translate3d(0, 0, 0);
-    }
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .main-header {
-        padding: 25px;
-        gap: 20px;
-        flex-direction: column;
-        text-align: center;
+    /* Import Modern Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+    
+    /* Remove all Streamlit default styling */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display: none;}
+    .stDecoration {display: none;}
+    
+    /* Force dark background on everything */
+    html, body, .stApp, [data-testid="stAppViewContainer"], .main {
+        background-color: #0A0B1A !important;
+        color: white !important;
     }
     
-    .ai-powered-text::before {
-        position: static;
-        display: block;
-        margin-bottom: 10px;
+    /* Main app background with MASSIVE floating shapes */
+    .stApp {
+        background: linear-gradient(135deg, #0A0B1A 0%, #111225 50%, #1a1a2e 100%) !important;
+        min-height: 100vh !important;
+        position: relative !important;
+        overflow-x: hidden !important;
     }
-}
+    
+    /* MASSIVE floating background shapes - EXACTLY like reference image */
+    .stApp::before {
+        content: '';
+        position: fixed;
+        top: -400px;
+        right: -400px;
+        width: 800px;
+        height: 800px;
+        background: radial-gradient(circle, rgba(139, 92, 246, 0.25) 0%, rgba(139, 92, 246, 0.12) 40%, rgba(139, 92, 246, 0.05) 70%, transparent 85%);
+        border-radius: 50%;
+        z-index: 0;
+        animation: float-massive-1 25s ease-in-out infinite;
+        pointer-events: none !important;
+    }
+    
+    .stApp::after {
+        content: '';
+        position: fixed;
+        bottom: -500px;
+        left: -400px;
+        width: 900px;
+        height: 900px;
+        background: radial-gradient(circle, rgba(236, 72, 153, 0.22) 0%, rgba(236, 72, 153, 0.1) 50%, rgba(236, 72, 153, 0.04) 75%, transparent 90%);
+        border-radius: 50%;
+        z-index: 0;
+        animation: float-massive-2 30s ease-in-out infinite;
+        pointer-events: none !important;
+    }
+    
+    /* Additional HUGE floating elements */
+    body::before {
+        content: '';
+        position: fixed;
+        top: 20%;
+        left: -300px;
+        width: 700px;
+        height: 700px;
+        background: radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, rgba(59, 130, 246, 0.08) 60%, transparent 80%);
+        border-radius: 50%;
+        z-index: 0;
+        animation: float-massive-3 35s ease-in-out infinite;
+        pointer-events: none !important;
+    }
+    
+    body::after {
+        content: '';
+        position: fixed;
+        top: 60%;
+        right: -250px;
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.06) 65%, transparent 85%);
+        border-radius: 50%;
+        z-index: 0;
+        animation: float-massive-4 28s ease-in-out infinite;
+        pointer-events: none !important;
+    }
+    
+    /* More medium floating elements */
+    .main::before {
+        content: '';
+        position: fixed;
+        top: 10%;
+        left: 30%;
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, rgba(245, 158, 11, 0.12) 0%, rgba(245, 158, 11, 0.04) 70%, transparent 85%);
+        border-radius: 50%;
+        z-index: 0;
+        animation: float-medium-1 22s ease-in-out infinite;
+        pointer-events: none !important;
+    }
+    
+    .main::after {
+        content: '';
+        position: fixed;
+        bottom: 15%;
+        right: 25%;
+        width: 350px;
+        height: 350px;
+        background: radial-gradient(circle, rgba(168, 85, 247, 0.14) 0%, rgba(168, 85, 247, 0.05) 65%, transparent 80%);
+        border-radius: 50%;
+        z-index: 0;
+        animation: float-medium-2 26s ease-in-out infinite;
+        pointer-events: none !important;
+    }
+    
+    @keyframes float-massive-1 {
+        0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 0.9; }
+        25% { transform: translate(-100px, 80px) scale(1.1) rotate(90deg); opacity: 0.7; }
+        50% { transform: translate(-50px, -60px) scale(0.95) rotate(180deg); opacity: 1; }
+        75% { transform: translate(80px, 40px) scale(1.05) rotate(270deg); opacity: 0.8; }
+    }
+    
+    @keyframes float-massive-2 {
+        0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+        33% { transform: translate(120px, -80px) scale(1.15); opacity: 0.9; }
+        66% { transform: translate(-80px, 60px) scale(0.9); opacity: 0.7; }
+    }
+    
+    @keyframes float-massive-3 {
+        0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 0.7; }
+        50% { transform: translate(100px, 50px) rotate(180deg) scale(1.2); opacity: 0.9; }
+    }
+    
+    @keyframes float-massive-4 {
+        0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 0.6; }
+        30% { transform: translate(-60px, -40px) scale(1.1) rotate(120deg); opacity: 0.8; }
+        70% { transform: translate(40px, 80px) scale(0.95) rotate(240deg); opacity: 0.7; }
+    }
+    
+    @keyframes float-medium-1 {
+        0%, 100% { transform: translate(0, 0) rotate(0deg); opacity: 0.6; }
+        50% { transform: translate(60px, -40px) rotate(180deg); opacity: 0.8; }
+    }
+    
+    @keyframes float-medium-2 {
+        0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+        33% { transform: translate(-40px, 30px) scale(1.1); opacity: 0.7; }
+        66% { transform: translate(30px, -50px) scale(0.9); opacity: 0.6; }
+    }
+    
+    /* Main container with proper z-index */
+    .main .block-container {
+        padding: 2rem !important;
+        max-width: none !important;
+        background: transparent !important;
+        position: relative !important;
+        z-index: 100 !important;
+    }
+    
+    /* Header styling */
+    .header-container {
+        background: rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 24px !important;
+        padding: 3rem 2rem !important;
+        margin-bottom: 3rem !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        position: relative !important;
+        overflow: hidden !important;
+        z-index: 100 !important;
+    }
+    
+    .header-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        animation: shimmer 3s infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { left: -100%; }
+        100% { left: 100%; }
+    }
+    
+    .header-content {
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .youtube-logo {
+        width: 80px;
+        height: 60px;
+        background: linear-gradient(45deg, #FF0000, #FF6B6B);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        box-shadow: 0 10px 30px rgba(255, 0, 0, 0.4);
+        transition: transform 0.3s ease;
+    }
+    
+    .youtube-logo:hover {
+        transform: rotateY(15deg) rotateX(5deg);
+    }
+    
+    .main-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 3.5rem;
+        font-weight: 700;
+        margin: 0;
+        background: linear-gradient(135deg, #FFFFFF 0%, #8B5CF6 50%, #EC4899 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .main-subtitle {
+        font-family: 'Inter', sans-serif;
+        font-size: 1.3rem;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.7);
+        margin: 1rem 0 0 0;
+    }
+    
+    /* Search section with better alignment */
+    .search-container {
+        background: rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 24px !important;
+        padding: 3rem 2rem !important;
+        margin-bottom: 2rem !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        position: relative !important;
+        z-index: 100 !important;
+    }
+    
+    .search-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 2rem;
+        font-weight: 600;
+        color: white;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .search-icon {
+        font-size: 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    /* PERFECT ALIGNMENT: Same height for all form elements */
+    .stTextInput > div > div > input {
+        background: rgba(255, 255, 255, 0.08) !important;
+        backdrop-filter: blur(15px) !important;
+        border: 2px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 16px !important;
+        padding: 1rem 1.5rem !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 1.1rem !important;
+        color: white !important;
+        transition: all 0.1s ease !important;
+        height: 52px !important;
+        min-height: 52px !important;
+        box-sizing: border-box !important;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: #8B5CF6 !important;
+        box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.2) !important;
+        background: rgba(255, 255, 255, 0.12) !important;
+    }
+    
+    .stTextInput > div > div > input::placeholder {
+        color: rgba(255, 255, 255, 0.5) !important;
+    }
+    
+    .stSelectbox > div > div > select {
+        background: rgba(255, 255, 255, 0.08) !important;
+        backdrop-filter: blur(15px) !important;
+        border: 2px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 16px !important;
+        color: white !important;
+        font-family: 'Inter', sans-serif !important;
+        padding: 1rem !important;
+        font-size: 1.1rem !important;
+        height: 52px !important;
+        min-height: 52px !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* PERFECT ALIGNMENT & CURSOR FIX: Button same height as inputs */
+    .stButton > button {
+        background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%) !important;
+        border: none !important;
+        border-radius: 16px !important;
+        padding: 0rem 2rem !important;
+        font-family: 'Space Grotesk', sans-serif !important;
+        font-weight: 600 !important;
+        font-size: 1.1rem !important;
+        color: white !important;
+        box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4) !important;
+        transition: all 0.1s ease !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        height: 52px !important;
+        min-height: 52px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+        cursor: pointer !important;
+        pointer-events: auto !important;
+        user-select: none !important;
+        position: relative !important;
+        z-index: 999 !important;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px) scale(1.01) !important;
+        box-shadow: 0 12px 30px rgba(139, 92, 246, 0.5) !important;
+        transition: all 0.1s ease !important;
+    }
+    
+    .stButton > button:active {
+        transform: translateY(0px) scale(1) !important;
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3) !important;
+        transition: all 0.05s ease !important;
+    }
+    
+    /* Fix button containers that might block clicks */
+    .stButton,
+    .stDownloadButton {
+        cursor: pointer !important;
+        pointer-events: auto !important;
+        z-index: 999 !important;
+        position: relative !important;
+    }
 
-  .main-header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-    animation: shimmer 3s infinite;
-  }
-
-  @keyframes shimmer {
-    0% { left: -100%; }
-    100% { left: 100%; }
-  }
-
-  .youtube-logo { 
-    height: 90px; 
-    width: auto; 
-    filter: drop-shadow(0 8px 16px rgba(255,0,0,0.3));
-    transition: transform 0.3s ease;
-  }
-
-  .youtube-logo:hover {
-    transform: scale(1.05) rotate(2deg);
-  }
-
-  .project-title { 
-    font-size: 3.5em; 
-    font-weight: 900; 
-    background: linear-gradient(135deg, #FF0000 0%, #FF4500 25%, #FF6B6B 50%, #CC0000 75%, #8B0000 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: 0 4px 8px rgba(255,0,0,0.2);
-    position: relative;
-    animation: titleGlow 2s ease-in-out infinite alternate;
-  }
-
-  @keyframes titleGlow {
-    from { filter: drop-shadow(0 0 5px rgba(255,0,0,0.3)); }
-    to { filter: drop-shadow(0 0 20px rgba(255,0,0,0.6)); }
-  }
-
-  .subtitle {
-    font-size: 1.3em;
-    color: #555;
-    font-weight: 500;
-    margin-top: 15px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  
-  @keyframes slideInDown {
-    from { transform: translateY(-30px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-  
-  .youtube-logo { 
-    height: 80px; 
-    width: auto; 
-    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
-  }
-  
-  .project-title { 
-    font-size: 3.2em; 
-    font-weight: 800; 
-    background: linear-gradient(135deg, #FF0000, #CC0000, #FF6B6B);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  }
-  
-  .subtitle {
-    font-size: 1.2em;
-    color: #666;
-    font-weight: 400;
-    margin-top: 10px;
-  }
-  
-  /* Container Styles */
-  .glass-container { 
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
-    padding: 35px;
-    border-radius: 20px;
-    margin-bottom: 25px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    animation: fadeInUp 0.6s ease-out;
-  }
-  
-  @keyframes fadeInUp {
-    from { transform: translateY(30px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-  
-  /* Search Styles */
-  .search-header {
-    font-size: 1.8em;
-    font-weight: 700;
-    color: #333;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  
-  .stTextInput > div > div > input {
-    border-radius: 15px !important;
-    border: 2px solid #e0e0e0 !important;
-    padding: 15px 20px !important;
-    font-size: 16px !important;
-    transition: all 0.3s ease !important;
-  }
-  
-  .stTextInput > div > div > input:focus {
-    border-color: #667eea !important;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
-  }
-  
-  /* Video Card Styles */
-  .video-card {
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 15px;
-    padding: 25px;
-    margin: 20px 0;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    transition: all 0.3s ease;
-    border: 1px solid rgba(255,255,255,0.3);
-  }
-  
-  .video-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-    background: rgba(255, 255, 255, 1);
-  }
-  
-  .video-title {
-    font-size: 1.3em;
-    font-weight: 700;
-    color: #000000;
-    margin-bottom: 8px;
-  }
-
-  /* For dashboard video title - FIXED */
-  .dashboard-video-title {
-    color: #000000 !important;
-    font-weight: 700 !important;
-    font-size: 1.4em !important;
-  }
-  
-  /* Fix for markdown links in dashboard */
-  .dashboard-video-title a {
-    color: #000000 !important;
-    text-decoration: none !important;
-  }
-  
-  .dashboard-video-title a:hover {
-    color: #333333 !important;
-    text-decoration: underline !important;
-  }
-  
-  .video-meta {
-    color: #444;
-    font-size: 1em;
-    margin-bottom: 15px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    flex-wrap: wrap;
-  }
-
-  .meta-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(102, 126, 234, 0.1);
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.95em;
-    font-weight: 600;
-    color: #333;
-    border: 1px solid rgba(102, 126, 234, 0.2);
-    transition: all 0.3s ease;
-  }
-
-  .meta-item:hover {
-    background: rgba(102, 126, 234, 0.2);
-    transform: translateY(-1px);
-  }
-
-  .video-description {
-    color: #555;
-    font-size: 0.95em;
-    line-height: 1.5;
-    margin-top: 10px;
-    font-weight: 400;
-    background: rgba(0,0,0,0.03);
-    padding: 12px 15px;
-    border-radius: 10px;
-    border-left: 3px solid #667eea;
-  }
-  
-  /* Metric Cards */
-  .metric-card {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
-    padding: 25px;
-    border-radius: 15px;
-    text-align: center;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    transition: transform 0.3s ease;
-  }
-  
-  .metric-card:hover {
-    transform: translateY(-3px);
-  }
-  
-  .metric-value {
-    font-size: 2.5em;
-    font-weight: 700;
-    margin-bottom: 5px;
-  }
-  
-  .metric-label {
-    font-size: 0.9em;
-    opacity: 0.9;
-  }
-  
-  /* Buttons */
-  .stButton > button { 
-    background: linear-gradient(135deg, #667eea, #764ba2) !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 12px !important;
-    padding: 12px 28px !important;
-    font-weight: 600 !important;
-    font-size: 16px !important;
-    transition: all 0.3s ease !important;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
-  }
-  
-  .stButton > button:hover { 
-    transform: translateY(-2px) !important;
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4) !important;
-    background: linear-gradient(135deg, #5a67d8, #6b46c1) !important;
-  }
-  
-  /* Status Messages */
-  .status-success {
-    background: linear-gradient(135deg, #48bb78, #38a169);
-    color: white;
-    padding: 20px;
-    border-radius: 12px;
-    text-align: center;
-    font-weight: 600;
-    margin: 20px 0;
-    box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
-  }
-  
-  .status-processing {
-    background: linear-gradient(135deg, #ed8936, #dd6b20);
-    color: white;
-    padding: 20px;
-    border-radius: 12px;
-    text-align: center;
-    font-weight: 600;
-    margin: 20px 0;
-    box-shadow: 0 4px 15px rgba(237, 137, 54, 0.3);
-  }
-  
-  .status-error {
-    background: linear-gradient(135deg, #f56565, #e53e3e);
-    color: white;
-    padding: 20px;
-    border-radius: 12px;
-    text-align: center;
-    font-weight: 600;
-    margin: 20px 0;
-    box-shadow: 0 4px 15px rgba(245, 101, 101, 0.3);
-  }
-  
-  /* Loading Animations */
-  .loading-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 40px;
-  }
-  
-  .spinner {
-    width: 60px;
-    height: 60px;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #667eea;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 20px;
-  }
-  
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  
-  .loading-text {
-    font-size: 1.2em;
-    color: #667eea;
-    font-weight: 600;
-    text-align: center;
-  }
-  
-  .loading-dots::after {
-    content: '';
-    animation: dots 1.5s steps(5, end) infinite;
-  }
-  
-  @keyframes dots {
-    0%, 20% { content: ''; }
-    40% { content: '.'; }
-    60% { content: '..'; }
-    80%, 100% { content: '...'; }
-  }
-  
-  /* Insights Container */
-  .insights-container {
-    background: linear-gradient(135deg, rgba(168, 237, 234, 0.2), rgba(254, 214, 227, 0.2));
-    border-radius: 15px;
-    padding: 25px;
-    margin: 20px 0;
-    border: 1px solid rgba(168, 237, 234, 0.3);
-    backdrop-filter: blur(10px);
-  }
-  
-  /* Download Section */
-  .download-section {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
-    border-radius: 15px;
-    padding: 25px;
-    margin: 20px 0;
-    border: 1px solid rgba(102, 126, 234, 0.2);
-  }
-  
-  /* Progress Bar */
-  .progress-container {
-    background: rgba(255, 255, 255, 0.8);
-    border-radius: 10px;
-    padding: 20px;
-    margin: 20px 0;
-  }
-  
-  .progress-bar {
-    width: 100%;
-    height: 8px;
-    background: #e2e8f0;
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  
-  .progress-bar-fill {
-    height: 100%;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    border-radius: 4px;
-    animation: progress 2s ease-in-out infinite;
-  }
-  
-  @keyframes progress {
-    0% { width: 30%; }
-    50% { width: 70%; }
-    100% { width: 30%; }
-  }
-  
-  /* Charts Container */
-  .chart-container {
-    background: rgba(255, 255, 255, 0.98);
-    border-radius: 15px;
-    padding: 20px;
-    margin: 15px 0;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-  }
-  
-  /* Footer */
-  .footer {
-    text-align: center;
-    color: rgba(255,255,255,0.8);
-    padding: 30px;
-    font-size: 1.1em;
-    background: rgba(255,255,255,0.1);
-    border-radius: 15px;
-    margin-top: 40px;
-    backdrop-filter: blur(10px);
-  }
-
-/* Video Card Container */
-.video-card {
-    background: rgba(255, 255, 255, 0.98);
-    border-radius: 16px;
-    padding: 24px;
-    margin: 20px 0;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    transition: all 0.3s ease;
-}
-
-.video-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
-}
-
-/* Thumbnail Styles */
-.thumbnail-container {
-    position: relative;
-    width: 100%;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-}
-
-.thumbnail-wrapper {
-    position: relative;
-    padding-top: 56.25%; /* 16:9 Aspect Ratio */
-}
-
-.thumbnail-wrapper img {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.5s ease;
-}
-
-.thumbnail-wrapper:hover img {
-    transform: scale(1.05);
-}
-
-.play-button {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.9);
-    width: 48px;
-    height: 48px;
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: all 0.3s ease;
-}
-
-.thumbnail-wrapper:hover .play-button {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-}
-
-.duration-badge {
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
-    background: rgba(0, 0, 0, 0.85);
-    color: white;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-/* Content Styles */
-.video-title {
-    font-size: 1.4em;
-    font-weight: 700;
-    color: #1a1a1a;
-    margin-bottom: 12px;
-    line-height: 1.4;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.verified-badge {
-    display: inline-flex;
-    align-items: center;
-}
-
-.video-meta {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-}
-
-.meta-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.9em;
-    font-weight: 500;
-    transition: all 0.3s ease;
-}
-
-.meta-item.primary {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
-    color: #4a5568;
-}
-
-.meta-item.secondary {
-    background: linear-gradient(135deg, rgba(66, 153, 225, 0.1), rgba(99, 179, 237, 0.1));
-    color: #4a5568;
-}
-
-/* Description Styles */
-.description-container {
-    background: linear-gradient(135deg, rgba(247, 250, 252, 0.8), rgba(237, 242, 247, 0.8));
-    border-radius: 12px;
-    padding: 16px;
-    margin-top: 16px;
-    border: 1px solid rgba(226, 232, 240, 0.8);
-}
-
-.description-content {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-}
-
-.description-icon {
-    flex-shrink: 0;
-    margin-top: 4px;
-}
-
-.description-text {
-    color: #2d3748;
-    font-size: 0.95em;
-    line-height: 1.6;
-    margin: 0;
-    font-weight: 400;
-}
-
-@keyframes fadeInUp {
-    from {
+    .stButton > div,
+    .stDownloadButton > div {
+        cursor: pointer !important;
+        pointer-events: auto !important;
+        z-index: 999 !important;
+    }
+    
+    /* DOWNLOAD BUTTON FIX */
+    .stDownloadButton > button {
+        background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%) !important;
+        border: none !important;
+        border-radius: 16px !important;
+        padding: 0 2rem !important;
+        font-family: 'Space Grotesk', sans-serif !important;
+        font-size: 1.1rem !important;
+        font-weight: 600 !important;
+        color: #ffffff !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        height: 52px !important;
+        min-height: 52px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4) !important;
+        transition: all 0.1s ease !important;
+        cursor: pointer !important;
+        pointer-events: auto !important;
+        user-select: none !important;
+        position: relative !important;
+        z-index: 999 !important;
+    }
+    
+    .stDownloadButton > button:hover {
+        transform: translateY(-2px) scale(1.01) !important;
+        box-shadow: 0 12px 30px rgba(139, 92, 246, 0.5) !important;
+    }
+    
+    .stDownloadButton > button:active {
+        transform: translateY(0px) scale(1) !important;
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3) !important;
+        transition: all 0.05s ease !important;
+    }
+    
+    /* Ensure download button text is visible */
+    .stDownloadButton > button *,
+    .stDownloadButton > button span,
+    .stDownloadButton > button div {
+        color: #ffffff !important;
+        opacity: 1 !important;
+        font-size: 1.1rem !important;
+        font-weight: 600 !important;
+        pointer-events: none !important;
+    }
+    
+    /* Video card styling with z-index */
+    .video-card {
+        background: rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 20px !important;
+        padding: 2rem !important;
+        margin-bottom: 1.5rem !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        position: relative !important;
+        z-index: 100 !important;
+        transition: all 0.4s ease !important;
+        overflow: hidden !important;
+    }
+    
+    .video-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         opacity: 0;
-        transform: translateY(20px);
+        transition: opacity 0.3s ease;
     }
-    to {
+    
+    .video-card:hover {
+        background: rgba(255, 255, 255, 0.08) !important;
+        border-color: rgba(139, 92, 246, 0.5) !important;
+        transform: translateY(-6px) !important;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4) !important;
+    }
+    
+    .video-card:hover::before {
         opacity: 1;
-        transform: translateY(0);
     }
-}
-  
-  /* Responsive adjustments */
-  @media (max-width: 768px) {
-    .project-title { font-size: 2.2em; }
-    .glass-container { padding: 20px; }
-    .main-header { padding: 20px; }
-  }
+    
+    .video-thumbnail {
+        border-radius: 16px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        transition: transform 0.3s ease;
+    }
+    
+    .video-thumbnail:hover {
+        transform: scale(1.03);
+    }
+    
+    .video-thumbnail img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    
+    .video-thumbnail::after {
+        content: '▶';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 3rem;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(10px);
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: all 0.3s ease;
+        border: 3px solid #8B5CF6;
+        box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+    }
+    
+    .video-thumbnail:hover::after {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+    
+    .video-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: white;
+        margin: 1.5rem 0 1rem 0;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .video-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .video-channel {
+        color: #EC4899;
+        font-family: 'Inter', sans-serif;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        font-size: 1rem;
+    }
+    
+    .video-date {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        font-family: 'Inter', sans-serif;
+    }
+    
+    .video-description {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.95rem;
+        line-height: 1.6;
+        margin-bottom: 1.5rem;
+        font-family: 'Inter', sans-serif;
+        background: rgba(255, 255, 255, 0.03);
+        padding: 1.2rem;
+        border-radius: 12px;
+        border-left: 4px solid #8B5CF6;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .results-counter {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: white;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 0;
+    }
+    
+    .results-icon {
+        font-size: 2.2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    /* Dashboard sections with z-index */
+    .dashboard-section {
+        background: rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 24px !important;
+        padding: 3rem 2rem !important;
+        margin-bottom: 2rem !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        position: relative !important;
+        z-index: 100 !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .dashboard-section:hover {
+        border-color: rgba(139, 92, 246, 0.5) !important;
+        transform: translateY(-2px) !important;
+    }
+    
+    .section-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 2rem;
+        font-weight: 600;
+        color: white;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    /* Metric cards */
+    .metric-card {
+        background: rgba(255, 255, 255, 0.04) !important;
+        backdrop-filter: blur(15px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 20px !important;
+        padding: 2.5rem 2rem !important;
+        text-align: center !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        transition: all 0.4s ease !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+    
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        opacity: 0.8;
+    }
+    
+    .metric-card:hover {
+        background: rgba(255, 255, 255, 0.08) !important;
+        border-color: rgba(139, 92, 246, 0.5) !important;
+        transform: translateY(-8px) scale(1.02) !important;
+        box-shadow: 0 20px 40px rgba(139, 92, 246, 0.3) !important;
+    }
+    
+    .metric-value {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 2.8rem;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 1rem;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    .metric-label {
+        font-family: 'Inter', sans-serif;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.95rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+    }
+    
+    /* Loading animation */
+    .loading-container {
+        background: rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 24px !important;
+        padding: 4rem 3rem !important;
+        text-align: center !important;
+        margin: 3rem 0 !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        z-index: 100 !important;
+        position: relative !important;
+    }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        border-top: 4px solid #8B5CF6;
+        border-right: 4px solid #EC4899;
+        border-radius: 50%;
+        animation: spin 1.2s linear infinite;
+        margin-bottom: 2rem;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .loading-text {
+        font-family: 'Space Grotesk', sans-serif;
+        color: white;
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 0.8rem;
+    }
+    
+    .loading-stage {
+        font-family: 'Inter', sans-serif;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 1.1rem;
+    }
+    
+    /* Status messages */
+    .status-success {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.05)) !important;
+        backdrop-filter: blur(15px) !important;
+        color: white !important;
+        padding: 1.5rem 2rem !important;
+        border-radius: 16px !important;
+        margin: 1.5rem 0 !important;
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 500 !important;
+        border: 1px solid rgba(16, 185, 129, 0.4) !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        z-index: 100 !important;
+        position: relative !important;
+    }
+    
+    .status-error {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.05)) !important;
+        backdrop-filter: blur(15px) !important;
+        color: white !important;
+        padding: 1.5rem 2rem !important;
+        border-radius: 16px !important;
+        margin: 1.5rem 0 !important;
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 500 !important;
+        border: 1px solid rgba(239, 68, 68, 0.4) !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        z-index: 100 !important;
+        position: relative !important;
+    }
+    
+    .status-warning {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.05)) !important;
+        backdrop-filter: blur(15px) !important;
+        color: white !important;
+        padding: 1.5rem 2rem !important;
+        border-radius: 16px !important;
+        margin: 1.5rem 0 !important;
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 500 !important;
+        border: 1px solid rgba(245, 158, 11, 0.4) !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        z-index: 100 !important;
+        position: relative !important;
+    }
+    
+    /* AI insights */
+    .ai-insights {
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(236, 72, 153, 0.1)) !important;
+        backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(139, 92, 246, 0.4) !important;
+        border-radius: 24px !important;
+        padding: 2.5rem !important;
+        margin: 2rem 0 !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        z-index: 100 !important;
+        position: relative !important;
+    }
+    
+    /* Footer */
+    .footer-container {
+        background: rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 24px !important;
+        color: white !important;
+        text-align: center !important;
+        padding: 3rem !important;
+        margin-top: 4rem !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        z-index: 100 !important;
+        position: relative !important;
+    }
+    
+    .footer-container h3 {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0 0 1rem 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .footer-container p {
+        font-family: 'Inter', sans-serif;
+        margin: 0.5rem 0;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 1.1rem;
+    }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .header-content {
+            flex-direction: column;
+            text-align: center;
+            gap: 2rem;
+        }
+        
+        .main-title {
+            font-size: 2.5rem;
+        }
+        
+        .main-subtitle {
+            font-size: 1.1rem;
+        }
+        
+        .youtube-logo {
+            width: 70px;
+            height: 50px;
+            font-size: 24px;
+        }
+        
+        .search-container, .video-card, .dashboard-section {
+            padding: 1.5rem !important;
+        }
+        
+        .metric-card {
+            padding: 2rem 1.5rem !important;
+        }
+        
+        .metric-value {
+            font-size: 2.2rem;
+        }
+        
+        .search-title, .section-title {
+            font-size: 1.6rem;
+        }
+        
+        /* PERFECT ALIGNMENT: Same height and baseline for all form elements */
+        .stTextInput > div > div > input,
+        .stSelectbox > div > div > select,
+        .stButton > button,
+        .stDownloadButton > button {
+            height: 48px !important;
+            min-height: 48px !important;
+            max-height: 48px !important;
+            box-sizing: border-box !important;
+            border-radius: 16px !important;
+            font-size: 1rem !important;
+            margin: 0 !important;
+            padding: 0 1rem !important;
+            display: flex !important;
+            align-items: center !important;
+            vertical-align: top !important;
+        }
+
+        /* Fix button container alignment for mobile */
+        .stButton > div,
+        .stDownloadButton > div {
+            display: flex !important;
+            align-items: center !important;
+            height: 48px !important;
+        }
+
+        .stButton > button,
+        .stDownloadButton > button {
+            padding: 0 1.5rem !important;
+            margin: 0 !important;
+            justify-content: center !important;
+            line-height: 1 !important;
+            vertical-align: baseline !important;
+        }
+            
+        /* Ensure all column containers align properly */
+        div[data-testid="column"] > div {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+        }
+
+        /* Fix any wrapper divs that might cause misalignment */
+        .stTextInput > div,
+        .stSelectbox > div,
+        .stButton > div,
+        .stDownloadButton > div {
+            margin-bottom: 0 !important;
+            margin-top: 0 !important;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -900,7 +943,7 @@ if "raw_summary" not in st.session_state:
 if "ai_insights" not in st.session_state:
     st.session_state.ai_insights = None
 if "analysis_status" not in st.session_state:
-    st.session_state.analysis_status = "idle"  # idle, processing, complete, error
+    st.session_state.analysis_status = "idle"
 if "dashboard_mode" not in st.session_state:
     st.session_state.dashboard_mode = False
 if "processing_stage" not in st.session_state:
@@ -908,93 +951,79 @@ if "processing_stage" not in st.session_state:
 if "analysis_start_time" not in st.session_state:
     st.session_state.analysis_start_time = None
 
-# ─── Enhanced Loading Animation ──────────────────────────────────────────────
+# ─── Loading Animation ──────────────────────────────────────────────
 def show_loading_animation(text="Processing", stage=""):
-    """Enhanced loading animation with stages and darker text for better visibility"""
+    """Enhanced loading animation"""
     loading_html = f"""
-    <div style="text-align: center; margin: 20px 0;">
-        <div style="border: 3px solid rgba(255, 255, 255, 0.3); border-top: 3px solid #ffffff; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 15px auto;"></div>
-        <div style="font-size: 18px; margin-bottom: 5px; color: #ffffff; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">{text}</div>
-        {f'<div style="margin-top: 10px; color: #e0e0e0; font-size: 0.9em; font-weight: 500; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">{stage}</div>' if stage else ''}
+    <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">{text}</div>
+        {f'<div class="loading-stage">{stage}</div>' if stage else ''}
     </div>
-    
-    <style>
-    @keyframes spin {{
-        0% {{ transform: rotate(0deg); }}
-        100% {{ transform: rotate(360deg); }}
-    }}
-    </style>
     """
     return st.markdown(loading_html, unsafe_allow_html=True)
 
-# ─── Enhanced Header ──────────────────────────────────────────────────────────
+# ─── Header ──────────────────────────────────────────────────────────
 def show_header():
-    youtube_logo_url = "https://cdn-icons-png.flaticon.com/512/1384/1384060.png"
-    st.markdown(f"""
-    <div class="main-header">
-      <img src="{youtube_logo_url}" class="youtube-logo" alt="YouTube Logo">
-      <div>
-        <div class="project-title">YouTube Sentiment Dashboard</div>
-        <div class="subtitle">AI-Powered Comment Analysis & Insights</div>
-      </div>
+    """Enhanced header design"""
+    st.markdown("""
+    <div class="header-container">
+        <div class="header-content">
+            <div class="youtube-logo">
+                ▶
+            </div>
+            <div>
+                <h1 class="main-title">YouTube Sentiment Dashboard</h1>
+                <p class="main-subtitle">AI-Powered Comment Analysis & Insights</p>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-# ─── Enhanced Search Interface ───────────────────────────────────────────────
+# ─── Search Interface ───────────────────────────────────────────
 def search_interface():
+    """Enhanced search interface design"""
     st.markdown('''
-    <div class="glass-container">
-        <div class="search-header">🔍 Search YouTube Videos</div>
-        <!-- Content will go here -->
+    <div class="search-container">
+        <div class="search-title">
+            <span class="search-icon">🔍</span>
+            Search YouTube Videos
+        </div>
     </div>
     ''', unsafe_allow_html=True)
     
-    # Search form
-    # Add alignment CSS
-    st.markdown("""
-    <style>
-    .search-row {
-        display: flex;
-        align-items: end;
-        gap: 15px;
-        margin-bottom: 20px;
-    }
-    .search-input {
-        flex: 4;
-    }
-    .search-select {
-        flex: 1;
-    }
-    .search-button {
-        flex: 1;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns([4, 1, 1])
+    # Search form with PERFECT alignment - all elements same height (52px)
+    col1, col2, col3 = st.columns([6, 1, 1.5])
 
     with col1:
-        query = st.text_input("", key="search_query", placeholder="Enter keywords to search YouTube videos...")
+        query = st.text_input(
+            "Search Query", 
+            key="search_query", 
+            placeholder="Enter keywords to search YouTube videos...",
+            label_visibility="collapsed"
+        )
 
     with col2:
-        max_results = st.selectbox("Results", [10, 25, 50], key="search_max")
+        max_results = st.selectbox(
+            "Max Results", 
+            [10, 25, 50], 
+            key="search_max",
+            label_visibility="collapsed"
+        )
 
     with col3:
-        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)  # Add spacing
         search_clicked = st.button("🔍 Search", use_container_width=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
     
     if search_clicked:
         if not query.strip():
-            st.markdown('<div class="status-error">⚠️ Please enter a search query.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="status-warning">⚠️ Please enter a search query.</div>', unsafe_allow_html=True)
         else:
             perform_search(query, max_results)
     
     display_search_results()
 
 def perform_search(query, max_results):
-    """Enhanced search with better error handling"""
+    """Enhanced search with modern styling"""
     placeholder = st.empty()
     with placeholder.container():
         show_loading_animation("Searching YouTube videos", "Connecting to YouTube API...")
@@ -1033,100 +1062,43 @@ def perform_search(query, max_results):
         placeholder.markdown(f'<div class="status-error">❌ Search failed: {str(e)}</div>', unsafe_allow_html=True)
 
 def display_search_results():
-    """Enhanced search results display"""
+    """Display search results with enhanced card styling"""
     if st.session_state.search_results:
-        # Display count outside the container with better styling
         st.markdown(f'''
-        <div style="
-            font-size: 1.4em; 
-            font-weight: 700; 
-            color: white; 
-            margin: 20px 0 15px 0; 
-            text-align: center;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            background: rgba(255,255,255,0.1);
-            padding: 12px 25px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-        ">
-            📺 Found {len(st.session_state.search_results)} Videos
+        <div class="results-counter">
+            <span class="results-icon">📺</span>
+            Found {len(st.session_state.search_results)} Videos
         </div>
         ''', unsafe_allow_html=True)
         
         for i, video in enumerate(st.session_state.search_results):
-            st.markdown(f'''
-            <div class="video-card" style="animation: fadeInUp {(i+1)*0.2}s ease-out;">
-            ''', unsafe_allow_html=True)
+            
             
             cols = st.columns([1, 4, 1])
             
             with cols[0]:
-                # Enhanced thumbnail with modern hover effects
                 st.markdown(f'''
-                <div class="thumbnail-container">
-                    <div class="thumbnail-wrapper">
-                        <img src="{video['thumbnail']}" alt="{video['title']}">
-                        <div class="play-button">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8 5V19L19 12L8 5Z" fill="white"/>
-                            </svg>
-                        </div>
-                        <div class="duration-badge">HD</div>
-                    </div>
+                <div class="video-thumbnail">
+                    <img src="{video["thumbnail"]}" alt="Video thumbnail" />
                 </div>
                 ''', unsafe_allow_html=True)
             
             with cols[1]:
-                # Enhanced content section with better typography and colors
                 st.markdown(f'''
-                <div class="video-content">
-                    <h3 class="video-title">
-                        {video["title"]}
-                        <span class="verified-badge">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="#1DA1F2">
-                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-                            </svg>
-                        </span>
-                    </h3>
-                    
-                    <div class="video-meta">
-                        <div class="meta-item primary">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/>
-                            </svg>
-                            {video["channel"]}
-                        </div>
-                        <div class="meta-item secondary">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
-                                <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
-                            </svg>
-                            {video["published"]}
-                        </div>
-                    </div>
+                <div class="video-title">{video["title"]}</div>
+                <div class="video-meta">
+                    <div class="video-channel">📺 {video["channel"]}</div>
+                    <div class="video-date">📅 {video["published"]}</div>
+                </div>
                 ''', unsafe_allow_html=True)
                 
                 description = video.get("description", "")
                 if description:
                     st.markdown(f'''
-                    <div class="description-container">
-                        <div class="description-content">
-                            <div class="description-icon">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="#0066FF">
-                                    <path d="M14 17H4v2h10v-2zm6-8H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z"/>
-                                </svg>
-                            </div>
-                            <p class="description-text">
-                                {description[:250] + ('...' if len(description) > 250 else '')}
-                            </p>
-                        </div>
+                    <div class="video-description">
+                        {description[:250] + ('...' if len(description) > 250 else '')}
                     </div>
                     ''', unsafe_allow_html=True)
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown('</div>', unsafe_allow_html=True)
             
             with cols[2]:
                 if st.button("🚀 Analyze", key=f"select_{i}", use_container_width=True):
@@ -1140,7 +1112,7 @@ def display_search_results():
             
             st.markdown('</div>', unsafe_allow_html=True)
 
-# ─── Enhanced Dashboard Interface (FIXED) ────────────────────────────────────────────
+# ─── Dashboard Interface ────────────────────────────────────────────
 def dashboard_interface():
     video = st.session_state.selected_video
     
@@ -1156,44 +1128,37 @@ def dashboard_interface():
     st.markdown("---")
     
     # Video info section
-    st.markdown('<div class="glass-container">', unsafe_allow_html=True)
-    st.markdown("### 🎬 Selected Video")
+    st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">🎬 Selected Video</div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns([1, 3])
     with col1:
         st.image(video["thumbnail"], width=250)
     
     with col2:
-        # Fixed video title display with proper styling
         st.markdown(f"""
-        <div class="dashboard-video-title">
-            <a href="https://youtu.be/{video['video_id']}" target="_blank" style="color: #000000 !important; text-decoration: none;">
-                {video['title']}
-            </a>
-        </div>
+        <div class="video-title">{video['title']}</div>
         """, unsafe_allow_html=True)
         st.write(f"📺 **Channel:** {video['channel']}")
         st.write(f"📅 **Published:** {video['published']}")
         st.write(f"🔗 **Video ID:** `{video['video_id']}`")
-        
-        # Analysis button
-        if st.session_state.analysis_status == "idle":
-            if st.button("🚀 Start Sentiment Analysis", use_container_width=True, key="start_analysis"):
-                trigger_sentiment_analysis(video['video_id'])
     
     st.markdown('</div>', unsafe_allow_html=True)
     
+    # Analysis button
+    if st.session_state.analysis_status == "idle":
+        if st.button("🚀 Start Sentiment Analysis", use_container_width=True, key="start_analysis"):
+            trigger_sentiment_analysis(video['video_id'])
+    
     # Analysis status and results
-    show_enhanced_analysis_status()
+    show_analysis_status()
     show_analysis_results()
 
 @st.fragment
-def show_enhanced_analysis_status():
-    """Enhanced analysis status with FIXED progressive checking - now as fragment"""
+def show_analysis_status():
+    """Analysis status with modern theming"""
     
     if st.session_state.analysis_status == "processing":
-        st.markdown('<div class="glass-container">', unsafe_allow_html=True)
-        
         # Initialize required session state variables
         if not hasattr(st.session_state, 'analysis_start_time') or st.session_state.analysis_start_time is None:
             st.session_state.analysis_start_time = time.time()
@@ -1206,15 +1171,15 @@ def show_enhanced_analysis_status():
         
         elapsed_time = time.time() - st.session_state.analysis_start_time
         
-        # Progressive checking intervals: 45s, 90s, 150s, 210s, etc.
-        check_intervals = [45, 90, 150, 210, 270, 330, 420, 510, 600]  # Added more intervals
+        # Progressive checking intervals
+        check_intervals = [30, 60, 90, 150, 210, 270, 330, 420, 510, 600]
         
         auto_check_triggered = False
         
         # Check if we should trigger auto-check
         for i, interval in enumerate(check_intervals):
             if elapsed_time >= interval and st.session_state.auto_check_count <= i:
-                st.markdown('<div style="text-align: center; margin: 20px 0; color: #667eea; font-weight: 600;">⏰ Auto-checking results...</div>', unsafe_allow_html=True)
+                st.markdown('<div class="status-warning">⏰ Auto-checking results...</div>', unsafe_allow_html=True)
                 st.session_state.auto_check_count = i + 1
                 st.session_state.last_check_time = interval
                 
@@ -1226,12 +1191,11 @@ def show_enhanced_analysis_status():
                 if st.session_state.analysis_status == "complete":
                     break
                 
-                # Add a small delay to prevent rapid re-checking
                 time.sleep(2)
                 break
         
         # Display current status
-        if st.session_state.analysis_status == "processing":  # Only show if still processing
+        if st.session_state.analysis_status == "processing":
             # Find next check interval for display
             next_check = None
             for interval in check_intervals:
@@ -1269,14 +1233,11 @@ def show_enhanced_analysis_status():
             
             # Progress simulation
             st.markdown("""
-            <div class="progress-container">
-                <div style="font-weight: 600; margin-bottom: 10px;">Processing stages:</div>
-                <div style="margin-bottom: 5px;">✅ Fetching comments</div>
-                <div style="margin-bottom: 5px;">🔄 Analyzing sentiment...</div>
-                <div style="margin-bottom: 5px;">⏳ Generating insights...</div>
-                <div class="progress-bar">
-                    <div class="progress-bar-fill"></div>
-                </div>
+            <div class="dashboard-section">
+                <h4>Processing stages:</h4>
+                <p>✅ Fetching comments</p>
+                <p>🔄 Analyzing sentiment...</p>
+                <p>⏳ Generating insights...</p>
             </div>
             """, unsafe_allow_html=True)
             
@@ -1288,14 +1249,11 @@ def show_enhanced_analysis_status():
             with col2:
                 if st.button("🔄 Reset Analysis", key="reset_analysis", use_container_width=True):
                     reset_analysis_state()
-                    st.rerun()  # Only this button still needs full rerun for complete reset
+                    st.rerun()
         
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Auto-refresh fragment - only if still processing and not just auto-checked
+        # Auto-refresh fragment
         if not auto_check_triggered and st.session_state.analysis_status == "processing":
-            # Wait 10 seconds then rerun this fragment only
-            time.sleep(10)
+            time.sleep(1)
             st.rerun()
     
     elif st.session_state.analysis_status == "complete":
@@ -1316,7 +1274,7 @@ def reset_analysis_state():
         del st.session_state.refresh_placeholder
 
 def trigger_sentiment_analysis(video_id):
-    """Enhanced analysis trigger with better error handling"""
+    """Enhanced analysis trigger with modern theming"""
     func_url = st.secrets.get("COMMENTS_FUNC_URL", os.getenv("COMMENTS_FUNC_URL"))
     bucket_name = st.secrets.get("RESULTS_BUCKET", os.getenv("RESULTS_BUCKET"))
     
@@ -1345,17 +1303,16 @@ def trigger_sentiment_analysis(video_id):
             placeholder.markdown('<div class="status-success">✅ Analysis started successfully!</div>', unsafe_allow_html=True)
             time.sleep(2)
             placeholder.empty()
-            # Fragment will handle the status updates automatically
-            
+        
         else:
             st.session_state.analysis_status = "error"
             placeholder.markdown(f'<div class="status-error">❌ Function call failed with status: {response.status_code}<br>Response: {response.text}</div>', unsafe_allow_html=True)
-            
+        
     except requests.exceptions.Timeout:
         st.session_state.analysis_status = "processing"
         st.session_state.analysis_start_time = time.time()
         st.session_state.auto_check_count = 0
-        placeholder.markdown('<div class="status-processing">⏳ Function call timed out, but analysis may still be running. Will check for results automatically.</div>', unsafe_allow_html=True)
+        placeholder.markdown('<div class="status-warning">⏳ Function call timed out, but analysis may still be running. Will check for results automatically.</div>', unsafe_allow_html=True)
         time.sleep(2)
         placeholder.empty()
         
@@ -1363,9 +1320,8 @@ def trigger_sentiment_analysis(video_id):
         st.session_state.analysis_status = "error"
         placeholder.markdown(f'<div class="status-error">❌ Function call failed: {str(e)}</div>', unsafe_allow_html=True)
 
-
 def check_for_results():
-    """FIXED results checking with better error handling and return value"""
+    """Results checking with modern theming"""
     video_id = st.session_state.selected_video['video_id']
     bucket_name = st.secrets.get("RESULTS_BUCKET", os.getenv("RESULTS_BUCKET"))
     
@@ -1412,17 +1368,17 @@ def check_for_results():
         else:
             # No results found yet
             return False
-            
+        
     except Exception as e:
         error_placeholder = st.empty()
         error_placeholder.markdown(f'<div class="status-error">❌ Error checking results: {str(e)}</div>', unsafe_allow_html=True)
         time.sleep(3)
         error_placeholder.empty()
         return False
-        
+
 @st.fragment
 def show_analysis_results():
-    """Enhanced results display with better error handling"""
+    """Enhanced results display with modern styling and FIXED Plotly compatibility"""
     if not st.session_state.raw_summary:
         return
     
@@ -1467,27 +1423,26 @@ def show_analysis_results():
         
         # Visualizations (only if we have data)
         if total_comments > 0:
-            show_enhanced_visualizations(positive_count, negative_count, neutral_count, avg_sentiment)
+            show_visualizations(positive_count, negative_count, neutral_count, avg_sentiment)
         
         # AI Insights
-        show_enhanced_ai_insights(raw_summary)
+        show_ai_insights(raw_summary)
         
         # Raw data and downloads
-        show_enhanced_downloads(raw_summary)
+        show_downloads(raw_summary)
         
     except Exception as e:
         st.markdown(f'<div class="status-error">❌ Could not parse analysis results: {str(e)}</div>', unsafe_allow_html=True)
         
         # Show raw data as fallback
-        st.markdown('<div class="glass-container">', unsafe_allow_html=True)
-        st.markdown("### 📄 Raw Analysis Data")
+        st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">📄 Raw Analysis Data</div>', unsafe_allow_html=True)
         st.text_area("Raw Results", raw_summary, height=300, key="fallback_raw_data")
         st.markdown('</div>', unsafe_allow_html=True)
 
 def show_metrics_dashboard(total_comments, avg_sentiment, positive_count, negative_count, neutral_count):
-    """Enhanced metrics display"""
-    st.markdown('<div class="glass-container">', unsafe_allow_html=True)
-    st.markdown("### 📊 Sentiment Analysis Overview")
+    """Enhanced metrics display with modern cards"""
+    st.markdown('<div class="section-title">📊 Sentiment Analysis Overview</div>', unsafe_allow_html=True)
     
     # Create metric cards
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -1495,142 +1450,192 @@ def show_metrics_dashboard(total_comments, avg_sentiment, positive_count, negati
     with col1:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-value">{total_comments}</div>
+            <div class="metric-value">{total_comments:,}</div>
             <div class="metric-label">Total Comments</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
-        sentiment_color = "#48bb78" if avg_sentiment > 0 else "#f56565" if avg_sentiment < 0 else "#ed8936"
+        sentiment_color = "#10B981" if avg_sentiment > 0 else "#EF4444" if avg_sentiment < 0 else "#F59E0B"
         st.markdown(f"""
-        <div class="metric-card" style="background: linear-gradient(135deg, {sentiment_color}, {sentiment_color}aa);">
-            <div class="metric-value">{avg_sentiment:.2f}</div>
+        <div class="metric-card">
+            <div class="metric-value" style="color: {sentiment_color};">{avg_sentiment:.2f}</div>
             <div class="metric-label">Avg Sentiment</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
         st.markdown(f"""
-        <div class="metric-card" style="background: linear-gradient(135deg, #48bb78, #38a169);">
-            <div class="metric-value">{positive_count}</div>
+        <div class="metric-card">
+            <div class="metric-value" style="color: #10B981;">{positive_count:,}</div>
             <div class="metric-label">😊 Positive</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col4:
         st.markdown(f"""
-        <div class="metric-card" style="background: linear-gradient(135deg, #f56565, #e53e3e);">
-            <div class="metric-value">{negative_count}</div>
+        <div class="metric-card">
+            <div class="metric-value" style="color: #EF4444;">{negative_count:,}</div>
             <div class="metric-label">😞 Negative</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col5:
         st.markdown(f"""
-        <div class="metric-card" style="background: linear-gradient(135deg, #ed8936, #dd6b20);">
-            <div class="metric-value">{neutral_count}</div>
+        <div class="metric-card">
+            <div class="metric-value" style="color: #F59E0B;">{neutral_count:,}</div>
             <div class="metric-label">😐 Neutral</div>
         </div>
         """, unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-def show_enhanced_visualizations(positive_count, negative_count, neutral_count, avg_sentiment):
-    """Enhanced visualizations with multiple chart types"""
-    st.markdown('<div class="glass-container">', unsafe_allow_html=True)
-    st.markdown("### 📈 Sentiment Visualizations")
+def show_visualizations(positive_count, negative_count, neutral_count, avg_sentiment):
+    """FIXED: Enhanced visualizations with modern styling and proper Plotly syntax"""
+    st.markdown('<div class="section-title">📈 Sentiment Visualizations</div>', unsafe_allow_html=True)
     
     # Create two columns for charts
     col1, col2 = st.columns(2)
     
     with col1:
-        # Pie chart for sentiment distribution
+        # Pie chart
         labels = ['Positive', 'Negative', 'Neutral']
         values = [positive_count, negative_count, neutral_count]
-        colors = ['#48bb78', '#f56565', '#ed8936']
+        colors = ['#10B981', '#EF4444', '#F59E0B']
         
         fig_pie = go.Figure(data=[go.Pie(
             labels=labels, 
             values=values,
             hole=0.4,
-            marker_colors=colors,
+            marker=dict(
+                colors=colors,
+                line=dict(color='#FFFFFF', width=2)
+            ),
             textinfo='label+percent',
-            textfont_size=12
+            textfont=dict(size=14, color='white'),
+            hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>'
         )])
         
         fig_pie.update_layout(
-            title="Sentiment Distribution",
-            font=dict(size=14),
+            title=dict(
+                text="<b>Sentiment Distribution</b>",
+                font=dict(size=18, color='white', family='Space Grotesk')
+            ),
+            font=dict(size=14, color='white'),
             showlegend=True,
             height=400,
-            margin=dict(t=50, b=50, l=50, r=50)
+            margin=dict(t=50, b=50, l=50, r=50),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            legend=dict(
+                font=dict(color='white'),
+                bgcolor='rgba(255,255,255,0.05)',
+                bordercolor='rgba(255,255,255,0.2)',
+                borderwidth=1
+            )
         )
         
         st.plotly_chart(fig_pie, use_container_width=True)
     
     with col2:
-        # Bar chart for sentiment counts
+        # FIXED: Bar chart with correct title_font syntax
         fig_bar = go.Figure(data=[
             go.Bar(
                 x=labels,
                 y=values,
-                marker_color=colors,
+                marker=dict(
+                    color=colors,
+                    line=dict(color='white', width=2),
+                    opacity=0.8
+                ),
                 text=values,
                 textposition='auto',
+                textfont=dict(color='white', size=14),
+                hovertemplate='<b>%{x}</b><br>Count: %{y}<extra></extra>'
             )
         ])
         
         fig_bar.update_layout(
-            title="Sentiment Counts",
-            xaxis_title="Sentiment Type",
-            yaxis_title="Number of Comments",
-            font=dict(size=14),
+            title=dict(
+                text="<b>Sentiment Counts</b>",
+                font=dict(size=18, color='white', family='Space Grotesk')
+            ),
+            xaxis=dict(
+                title="Sentiment Type",
+                title_font=dict(color='white'),  # FIXED: was titlefont
+                tickfont=dict(color='white'),
+                gridcolor='rgba(255,255,255,0.1)'
+            ),
+            yaxis=dict(
+                title="Number of Comments",
+                title_font=dict(color='white'),  # FIXED: was titlefont
+                tickfont=dict(color='white'),
+                gridcolor='rgba(255,255,255,0.1)'
+            ),
+            font=dict(size=14, color='white'),
             height=400,
-            margin=dict(t=50, b=50, l=50, r=50)
+            margin=dict(t=50, b=50, l=50, r=50),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
         )
         
         st.plotly_chart(fig_bar, use_container_width=True)
     
-    # Sentiment score visualization
+    # Gauge chart
     if avg_sentiment != 0:
         fig_gauge = go.Figure(go.Indicator(
-            mode = "gauge+number+delta",
-            value = avg_sentiment,
-            domain = {'x': [0, 1], 'y': [0, 1]},
-            title = {'text': "Average Sentiment Score"},
-            delta = {'reference': 0},
-            gauge = {
-                'axis': {'range': [-1, 1]},
-                'bar': {'color': "#667eea"},
+            mode="gauge+number+delta",
+            value=avg_sentiment,
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={'text': "<b>Average Sentiment Score</b>", 
+                   'font': {'size': 20, 'color': 'white', 'family': 'Space Grotesk'}},
+            delta={'reference': 0, 'font': {'color': 'white'}},
+            number={'font': {'color': 'white', 'size': 24}},
+            gauge={
+                'axis': {
+                    'range': [-1, 1],
+                    'tickwidth': 2,
+                    'tickcolor': "white",
+                    'tickfont': {'color': 'white'}
+                },
+                'bar': {'color': "#8B5CF6", 'thickness': 0.3},
+                'bgcolor': "rgba(0,0,0,0.3)",
+                'borderwidth': 3,
+                'bordercolor': "rgba(139, 92, 246, 0.5)",
                 'steps': [
-                    {'range': [-1, -0.5], 'color': "#f56565"},
-                    {'range': [-0.5, 0], 'color': "#fc8181"},
-                    {'range': [0, 0.5], 'color': "#68d391"},
-                    {'range': [0.5, 1], 'color': "#48bb78"}
+                    {'range': [-1, -0.5], 'color': "rgba(239, 68, 68, 0.3)"},
+                    {'range': [-0.5, 0], 'color': "rgba(245, 158, 11, 0.3)"},
+                    {'range': [0, 0.5], 'color': "rgba(245, 158, 11, 0.3)"},
+                    {'range': [0.5, 1], 'color': "rgba(16, 185, 129, 0.3)"}
                 ],
                 'threshold': {
-                    'line': {'color': "red", 'width': 4},
-                    'thickness': 0.75,
+                    'line': {'color': "#EC4899", 'width': 4},
+                    'thickness': 0.8,
                     'value': 0
                 }
             }
         ))
         
-        fig_gauge.update_layout(height=300, margin=dict(t=50, b=50, l=50, r=50))
+        fig_gauge.update_layout(
+            height=300,
+            margin=dict(t=50, b=50, l=50, r=50),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white')
+        )
         st.plotly_chart(fig_gauge, use_container_width=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-def show_enhanced_ai_insights(raw_summary):
-    """Enhanced AI insights generation"""
-    st.markdown('<div class="glass-container">', unsafe_allow_html=True)
-    st.markdown("### 🤖 AI-Generated Insights")
+def show_ai_insights(raw_summary):
+    """Enhanced AI insights with modern theming"""
+    st.markdown('<div class="section-title">🤖 AI-Generated Insights</div>', unsafe_allow_html=True)
     
     if not st.session_state.ai_insights:
         if st.button("🧠 Generate AI Insights", use_container_width=True):
             generate_ai_insights(raw_summary)
     else:
-        st.markdown('<div class="insights-container">', unsafe_allow_html=True)
+        st.markdown('<div class="ai-insights">', unsafe_allow_html=True)
         st.markdown(st.session_state.ai_insights)
         st.markdown('</div>', unsafe_allow_html=True)
         
@@ -1641,7 +1646,7 @@ def show_enhanced_ai_insights(raw_summary):
     st.markdown('</div>', unsafe_allow_html=True)
 
 def generate_ai_insights(raw_summary):
-    """Generate AI insights using Gemini"""
+    """Generate AI insights with modern theming"""
     placeholder = st.empty()
     with placeholder.container():
         show_loading_animation("Generating AI Insights", "Analyzing patterns and trends...")
@@ -1649,20 +1654,32 @@ def generate_ai_insights(raw_summary):
     try:
         model = genai.GenerativeModel('gemini-1.5-pro')
         
-        prompt = f"""
-        Analyze this YouTube video sentiment analysis data and provide insightful observations:
-        
+        prompt = f"""Here is the data from their latest video:
         {raw_summary}
-        
-        Please provide:
-        1. **Key Findings**: What are the main sentiment patterns?
-        2. **Audience Engagement**: What does this tell us about viewer engagement?
-        3. **Content Performance**: How is the content being received?
-        4. **Recommendations**: What actionable insights can you provide?
-        5. **Notable Patterns**: Any interesting trends or outliers?
-        
-        Format your response in markdown with clear sections and bullet points.
-        Keep it concise but insightful (max 500 words).
+        Now, craft a creative and deeply analytical report that goes beyond the numbers. Structure your response using the following creative headers in Markdown:
+
+        🎭 The Emotional Pulse: What's the Story?
+        Instead of just listing stats, tell the sentiment story. Is the overall feeling celebratory, critical, or divided? Are there specific emotional undercurrents (e.g., excitement, confusion, gratitude)? Paint a vivid picture of the audience's collective mood.
+
+        💬 Decoding the Dialogue: Beyond Likes and Dislikes
+        Analyze the nature of the engagement. Are viewers just leaving one-word comments, or are they having detailed discussions? Are there recurring questions, suggestions, or debates? What does the quality of the conversation tell you about the community's health and investment in the content?
+
+        🔬 Creator's Report Card: What Worked and What Didn't?
+        Pinpoint the video's strengths and weaknesses based on the comments. What specific topics, moments, or editing choices are viewers praising? Conversely, what elements are drawing criticism or causing confusion? Be specific if possible.
+
+        🚀 Strategic Growth Blueprint: Your Next Moves
+        Provide 3–5 concrete, actionable recommendations based on your analysis. For each recommendation, use this format:
+
+        The Insight: (e.g., "Viewers are repeatedly asking for a follow-up on topic X.")
+
+        The Action: (e.g., "Create a dedicated video addressing topic X and pin a comment linking to it.")
+
+        The Expected Outcome: (e.g., "Increased viewer satisfaction and higher engagement on a subsequent video.")
+
+        ✨ Hidden Gems & Red Flags: The Signals in the Noise
+        Uncover any surprising or outlier findings. Is there an unexpected feature request that could be a goldmine? A single, highly-upvoted critical comment that represents a silent majority? A niche topic that sparked an unusual amount of passion? Highlight these opportunities and potential pitfalls.
+
+        Your final output should be an inspiring, data-driven narrative that empowers the creator to understand their audience better and make smarter content decisions. Keep it professional, yet engaging and creative.
         """
         
         response = model.generate_content(prompt)
@@ -1676,10 +1693,9 @@ def generate_ai_insights(raw_summary):
     except Exception as e:
         placeholder.markdown(f'<div class="status-error">❌ Failed to generate insights: {str(e)}</div>', unsafe_allow_html=True)
 
-def show_enhanced_downloads(raw_summary):
-    """Enhanced download section with multiple formats"""
-    st.markdown('<div class="glass-container">', unsafe_allow_html=True)
-    st.markdown("### 📥 Download Results")
+def show_downloads(raw_summary):
+    """Enhanced download section with modern styling"""
+    st.markdown('<div class="section-title">📥 Download Results</div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
     
@@ -1690,7 +1706,8 @@ def show_enhanced_downloads(raw_summary):
             data=raw_summary,
             file_name=f"sentiment_analysis_{st.session_state.selected_video['video_id']}.txt",
             mime="text/plain",
-            use_container_width=True
+            use_container_width=True,
+            key="download_txt"
         )
     
     with col2:
@@ -1710,7 +1727,8 @@ def show_enhanced_downloads(raw_summary):
                 data=json.dumps(json_data, indent=2),
                 file_name=f"sentiment_analysis_{st.session_state.selected_video['video_id']}.json",
                 mime="application/json",
-                use_container_width=True
+                use_container_width=True,
+                key="download_json"
             )
         except Exception as e:
             st.error(f"JSON generation failed: {e}")
@@ -1723,7 +1741,7 @@ def show_enhanced_downloads(raw_summary):
     st.markdown('</div>', unsafe_allow_html=True)
 
 def generate_pdf_report(raw_summary):
-    """Generate and download PDF report"""
+    """Generate PDF report with modern theming"""
     placeholder = st.empty()
     with placeholder.container():
         show_loading_animation("Generating PDF Report", "Creating formatted document...")
@@ -1813,24 +1831,18 @@ def generate_pdf_report(raw_summary):
         placeholder.markdown(f'<div class="status-error">❌ PDF generation failed: {str(e)}</div>', unsafe_allow_html=True)
 
 def show_footer():
-    """Enhanced footer"""
+    """Enhanced footer with modern theming"""
     st.markdown("""
-    <div class="footer">
-        <div style="font-size: 1.3em; font-weight: 600; margin-bottom: 10px;">
-            🎬 YouTube Sentiment Dashboard
-        </div>
-        <div>
-            Powered by AI • Built with Streamlit • Enhanced Analytics
-        </div>
-        <div style="margin-top: 10px; font-size: 0.9em; opacity: 0.8;">
-            Analyze • Visualize • Understand
-        </div>
+    <div class="footer-container">
+        <h3>🎬 YouTube Sentiment Dashboard</h3>
+        <p>Powered by AI • Built with Streamlit • Enhanced Analytics</p>
+        <p>Analyze • Visualize • Understand</p>
     </div>
     """, unsafe_allow_html=True)
 
 # ─── Main App Logic ───────────────────────────────────────────────────────────
 def main():
-    """Main application logic"""
+    """Main application logic with modern theming"""
     show_header()
     
     if not st.session_state.dashboard_mode:
