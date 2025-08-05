@@ -333,7 +333,7 @@ st.markdown("""
         padding: 1rem 1.5rem !important;
         font-family: 'Inter', sans-serif !important;
         font-size: 1.1rem !important;
-        color: white !important;
+        color: #121212 !important;
         transition: all 0.1s ease !important;
         height: 52px !important;
         min-height: 52px !important;
