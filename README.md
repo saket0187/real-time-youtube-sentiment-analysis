@@ -1,4 +1,4 @@
-# 🎬 Real-Time YouTube Sentiment Analysis Dashboard
+# 🎬 **Real-Time YouTube Sentiment Analysis Dashboard**
 
 A cloud-powered, full-stack platform that enables users to search YouTube videos, extract and analyze multilingual comments (English, Hindi, Hinglish), perform real-time sentiment analysis using Google Cloud Platform, and generate detailed AI-powered insights via Gemini AI. The user interface is crafted in Streamlit for maximum responsiveness and accessibility.
 
